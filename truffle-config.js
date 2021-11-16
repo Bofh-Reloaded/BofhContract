@@ -17,11 +17,13 @@ module.exports = {
     bscscan: BSCSCANAPIKEY
   },
   networks: {
-    // development: {
-    //   host: "127.0.0.1",     // Localhost (default: none)
-    //   port: 8545,            // Standard BSC port (default: none)
-    //   network_id: "*",       // Any network (default: none)
-    // },
+    development: {
+       // host: "data-seed-prebsc-1-s1.binance.org",     // Localhost (default: none)
+       // port: 8545,            // Standard BSC port (default: none)
+       url: "https://data-seed-prebsc-1-s1.binance.org:8545", 
+       network_id: "*",       // Any network (default: none)
+       from: "0x359E205FaC0EdE26Ff7662f17940Da1d508C79bd"
+    },
     bsc: {
       provider: () => new HDWalletProvider(mnemonic, `https://data-seed-prebsc-1-s1.binance.org:8545`),
       network_id: 97,

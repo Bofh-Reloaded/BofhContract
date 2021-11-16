@@ -1,5 +1,5 @@
-const HalalToken = artifacts.require("HalalToken");
+const BofhContract = artifacts.require("./contracts/BofhContract.sol");
 
 module.exports = function(deployer) {
-  deployer.deploy(HalalToken);
+  deployer.deploy(BofhContract);
 };
