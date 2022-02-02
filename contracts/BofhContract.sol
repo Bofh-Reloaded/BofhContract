@@ -9,23 +9,23 @@
     //
     // - receives an array of POOL addresses
     //          \___ each with their respective fee estimation (in parts per 10E+6)
-    // - receives initialAmount of BASE_TOKEN (Wei units) to start the swap chain
-    // - receives expectedAmount of BASE_TOKEN (Wei units) as profit target. Execution reverts if target is missed
+    // - receives initialAmount of baseToken (Wei units) to start the swap chain
+    // - receives expectedAmount of baseToken (Wei units) as profit target. Execution reverts if target is missed
     // - the initialAmount is transferred to the first pool of the path
     // - a swap is performed with the next pool in line as its beneficiary address
     // - at the end of the swap sequence, the beneficieary is the contract itself
-    // - if the described path is broken, too short, or is not circular respective of BASE_TOKEN, execution reverts
+    // - if the described path is broken, too short, or is not circular respective of baseToken, execution reverts
     // - the code exploits calldata and bit shifting optimizations to save on gas. This is at the expense of clarity of argument encoding
     // - the actual encoding of the parameters to be passed is laid out later. See multiswap1()
     //
     // Presequisites:
     // - THE CONTRACT IS PRIVATE: only the deployer of the contract has the right to invoke its public functions
-    // - a sufficient amount of BASE_TOKEN must be approved to the contract ONCE, prior of calling multiswap()
+    // - a sufficient amount of baseToken must be approved to the contract ONCE, prior of calling multiswap()
     // - in order to actually move the balance to the contract, call ONCE adoptAllowance()
     // - for each subsequent funding injection, it is necessaty to repeat this same sequence (approve first then adoptAllowance)
     //
     // How to retrieve the balance:
-    // - call withdrawFunds(). The BASE_TOKEN funds are sent back to the caller. All of it. The contract has then zero balance of the token.
+    // - call withdrawFunds(). The baseToken funds are sent back to the caller. All of it. The contract has then zero balance of the token.
     //
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -64,15 +64,16 @@ contract BofhContract
 {
     event Trace(uint value); // used for debugging
 
-    address owner; // rightful owner of the contract
+    address private owner; // rightful owner of the contract
+    address private baseToken; // = 0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd; // WBNB on testnet
 
-    constructor ()
+    constructor (address ctrBaseToken)
     {
         // owner is set at deploy time, set to the transaction signer
         owner = msg.sender;
+        baseToken = ctrBaseToken;
     }
 
-    address private constant BASE_TOKEN = 0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd; // WBNB on testnet
 
     function _safeTransfer(
         address token,
@@ -110,32 +111,47 @@ contract BofhContract
         return address(uint160(args[pool_idx]));
     }
 
-    function poolQuery(uint256[] calldata args, uint32 pool_idx, address tokenIn) internal view returns (uint, uint, bool, address)
+    function poolQuery(uint256[] calldata args, uint32 pool_idx, address tokenIn)
+        internal
+        // view
+        returns (uint, uint, bool, address)
     {
+        emit Trace(0x1b00);
         IGenericPair pair = IGenericPair(getPool(args, pool_idx));
         (uint reserveIn, uint reserveOut,) = pair.getReserves();
+        emit Trace(0x1b01);
         address tokenOut = pair.token1();
         // 50/50 change of this being the case:
+        emit Trace(0x1b02);
         if (tokenIn != tokenOut)
         {
             // we got lucky
+            emit Trace(0x1b03);
             require(tokenIn == pair.token0(), 'PAIR_NOT_IN_PATH'); // for paranoia
+            emit Trace(0x1b04);
             return (reserveIn, reserveOut, false, tokenOut);
         }
 
         // else:
         // we are going in with pool.token1(). Need to reverse assumptions:
+        emit Trace(0x1b05);
         tokenOut = pair.token0();
+        emit Trace(0x1b06);
         return (reserveIn, reserveOut, true, tokenOut);
     }
 
     function getAmountOutWithFee(  uint256[] calldata args
                                  , uint32 pool_idx
                                  , address tokenIn
-                                 , uint amountIn) internal view returns (uint ,uint, address)
+                                 , uint amountIn)
+        internal
+        // view
+        returns (uint ,uint, address)
     {
+        emit Trace(0x1a00);
         require(amountIn > 0, 'BOFH: INSUFFICIENT_INPUT_AMOUNT');
         (uint reserveIn, uint reserveOut, bool sellingToken0, address tokenOut) = poolQuery(args, pool_idx, tokenIn);
+        emit Trace(0x1a01);
 
         require(reserveIn > 0 && reserveOut > 0, 'BOFH: INSUFFICIENT_LIQUIDITY');
 
@@ -143,11 +159,14 @@ contract BofhContract
         uint numerator = mul(amountInWithFee, reserveOut);
         uint denominator = mul(reserveIn, 1000000) + amountInWithFee;
         uint amountOut = numerator / denominator;
+        emit Trace(0x1a02);
         if (sellingToken0)
         {
+            emit Trace(0x1a03);
             return (0, amountOut, tokenOut);
         }
         // else:
+        emit Trace(0x1a04);
         return (amountOut, 0, tokenOut);
      }
 
@@ -171,36 +190,45 @@ contract BofhContract
         require(msg.sender == owner, 'SUX2BEU');
         require(args.length < 4, 'PATH_TOO_SHORT');
 
-        address transitToken = BASE_TOKEN;
+        address transitToken = baseToken;
+        emit Trace(0x1000);
         uint256 currentAmount = getAmount(args, 0);
 
         // transfer to 1st pool
-        _safeTransfer(BASE_TOKEN
+        emit Trace(0x1100);
+        _safeTransfer(baseToken
                       , getPool(args, 0)
                       , currentAmount);
 
         for (uint32 i; i < args.length-2; i++)
         {
+            emit Trace(0x1300+(i<<4));
             // get infos from the LP
             (uint amount0Out, uint amount1Out, address tokenOut) = getAmountOutWithFee(args, i, transitToken, currentAmount);
+            emit Trace(0x1400+(i<<4));
             address swapBeneficiary = i >= (args.length-2)   // it this the last swap of the path?
                                       ? address(this)        //   \__ yes: the contract collects the output of the last swap
                                       : getPool(args, i+1);  //   \__ no : send funds to the next pool
 
+            emit Trace(0x1500+(i<<4));
             IGenericPair(getPool(args, i)).swap(amount0Out, amount1Out, swapBeneficiary, new bytes(0));
+            emit Trace(0x1600+(i<<4));
             transitToken = tokenOut;
             currentAmount = amount0Out == 0 ? amount1Out : amount0Out;
         }
 
-        require(transitToken == BASE_TOKEN, 'BOFH: NON_CIRCULAR_PATH');
+        emit Trace(0x1700);
+        require(transitToken == baseToken, 'BOFH: NON_CIRCULAR_PATH');
         require(currentAmount >= getAmount(args, 1), 'BOFH: GREED_IS_GOOD');
+        emit Trace(0x1800);
     }
 
     // PUBLIC API: have the contract move its allowance to itself
     function adoptAllowance() external
     {
         require(msg.sender == owner, 'SUX2BEU');
-        IBEP20 token = IBEP20(BASE_TOKEN);
+        emit Trace(0x2000);
+        IBEP20 token = IBEP20(baseToken);
         token.transferFrom(msg.sender, address(this), token.allowance(msg.sender, address(this)));
     }
 
@@ -208,7 +236,16 @@ contract BofhContract
     function withdrawFunds() external
     {
         require(msg.sender == owner, 'SUX2BEU');
-        IBEP20 token = IBEP20(BASE_TOKEN);
+        emit Trace(0x3000);
+        IBEP20 token = IBEP20(baseToken);
         token.transfer(msg.sender, token.balanceOf(address(this)));
+    }
+
+    // PUBLIC API: adopt another rightful admin address
+    function changeOwner(address newOwner) external
+    {
+        require(msg.sender == owner, 'SUX2BEU');
+        emit Trace(0x4000);
+        owner = newOwner;
     }
 }
