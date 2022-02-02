@@ -158,13 +158,13 @@ contract BofhContract
         // args[0] pool0
         // args[1] pool1
         // args[N] poolN
-        // args[-2].bytes[0..31]    feesppm0 --> extract with getFee(args, 0)
-        // args[-2].bytes[32..63]   feesppm1 --> extract with getFee(args, 1)
-        // args[-2].bytes[64..95]   feesppm2 --> extract with getFee(args, 2)
-        // args[-2].bytes[66..127]  feesppm3 --> extract with getFee(args, 3)
-        // args[-2].bytes[128..256] <unused>
-        // args[-1].bytes[1..127]   initialAmount       --> extract with getAmount(args, 0)
-        // args[-1].bytes[128..256] expectedFinalAmount --> extract with getAmount(args, 1)
+        // args[-2].bits[0..31]    feesppm0 --> extract with getFee(args, 0)
+        // args[-2].bits[32..63]   feesppm1 --> extract with getFee(args, 1)
+        // args[-2].bits[64..95]   feesppm2 --> extract with getFee(args, 2)
+        // args[-2].bits[66..127]  feesppm3 --> extract with getFee(args, 3)
+        // args[-2].bits[128..256] <unused>
+        // args[-1].bits[1..127]   initialAmount       --> extract with getAmount(args, 0)
+        // args[-1].bits[128..256] expectedFinalAmount --> extract with getAmount(args, 1)
         // minimal args.length is 2 pools + trailer --> 4 elements
     ) external {
 
