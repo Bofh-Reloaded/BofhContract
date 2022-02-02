@@ -6,6 +6,8 @@ interface IBEP20 {
     function approve(address spender, uint value) external returns (bool);
     function transfer(address to, uint value) external returns (bool);
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    function allowance(address _owner, address spender) external view returns (uint256);
+
 }
 
 // helper methods for interacting with ERC20 tokens and sending
@@ -78,21 +80,40 @@ interface IPancakePair {
 }
 
 contract BofhContract {
+    address owner; // rightful owner of the contract
 
-    address private constant CAKE_V2_ROUTER = 0x10ed43c718714eb63d5aa57b78b54704e256024e;
+    constructor ()
+    {
+        // owner is set at deploy time, set to the transaction signer
+        owner = msg.sender;
+    }
+
+
+    event Trace(uint value);
+
+
+
+    // address private constant CAKE_V2_ROUTER = 0x10ED43C718714eb63d5aA57B78B54704E256024E; // mainnet
+    address private constant CAKE_V2_ROUTER = 0x9Ac64Cc6e4415144C455BD8E4837Fea55603e5c3; // testnet
+    IBEP20 private constant BASE_TOKEN = IBEP20(0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd); // WBNB on testnet
 
     // THIS is the entry point
     function doCakeInternalSwaps(address[] calldata tokenPath  // array of LPs to be traversed (order of occurrence)
-                                 , address startToken          // initial token (starting liquidity)
                                  , uint256 initialAmount       // balance of initial token to use
                                  , uint256 minProfit           // minimum yield to achieve, in startToken, othervise rollback
                                  )
-    public
+    external
     {
-        require(tokenPath[tokenPath.length-1] == startToken);
+        require(tokenPath.length > 3, 'PATH_TOO_SHORT');
+        address startToken = tokenPath[0];
+        emit Trace(1);
+        require(tokenPath[tokenPath.length-1] == startToken, 'NON_CIRCULAR_PATH');
         IBEP20 startTokenI = IBEP20(startToken);
+        emit Trace(2);
         startTokenI.transferFrom(msg.sender, address(this), initialAmount);
+        emit Trace(3);
         startTokenI.approve(CAKE_V2_ROUTER, initialAmount);
+        emit Trace(4);
 
         IPancakeRouter01(CAKE_V2_ROUTER).swapExactTokensForTokens(
                 initialAmount
@@ -100,10 +121,140 @@ contract BofhContract {
                 , tokenPath
                 , msg.sender
                 , block.timestamp+20);
+        emit Trace(5);
         // CASOMAI SERVISSE:
         // startTokenI.transfer(msg.sender, startTokenI.balanceOf(address(this)));
     }
 
+    function _safeTransfer(
+        address token,
+        address to,
+        uint256 value
+    ) internal {
+        // bytes4(keccak256(bytes('transfer(address,uint256)')));
+        (bool success, bytes memory data) = token.call(abi.encodeWithSelector(0xa9059cbb, to, value));
+        require(
+            success && (data.length == 0 || abi.decode(data, (bool))),
+            'BOFH: transfer failed'
+        );
+    }
+
+    function mul(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a * b;
+    }
+
+
+
+    function _getAmountOutWithFee(uint[4] memory args
+                                    // indexing is:
+                                    // [0] uint amountIn
+                                    // [1] uint reserveIn
+                                    // [2] uint reserveOut
+                                    // [3] uint feePPM parts-per-million
+                                    ) internal pure returns (uint amountOut)
+    {
+         require(args[0] > 0, 'BOFH: INSUFFICIENT_INPUT_AMOUNT');
+         require(args[1] > 0 && args[2] > 0, 'BOFH: INSUFFICIENT_LIQUIDITY');
+         uint amountInWithFee = mul(args[0], 1000000-args[3]);
+         uint numerator = mul(amountInWithFee, args[2]);
+         uint denominator = mul(args[2], 1000000) + amountInWithFee;
+         amountOut = numerator / denominator;
+     }
+
+
+    //function _getAmountOutWithFee(uint amountIn, uint reserveIn, uint reserveOut, uint feePPM /* parts-per-million */) internal pure returns (uint amountOut)
+    //{
+    //     require(amountIn > 0, 'BOFH: INSUFFICIENT_INPUT_AMOUNT');
+    //     require(reserveIn > 0 && reserveOut > 0, 'BOFH: INSUFFICIENT_LIQUIDITY');
+    //     uint amountInWithFee = mul(amountIn, 1000000-feePPM);
+    //     uint numerator = mul(amountInWithFee, reserveOut);
+    //     uint denominator = mul(reserveIn, 1000000) + amountInWithFee;
+    //     amountOut = numerator / denominator;
+    //}
+
+    // have the contract transfer its allowance to itself
+    function adoptAllowance() external
+    {
+        require(msg.sender == owner, 'SUCKS2BEU');
+        BASE_TOKEN.transferFrom(msg.sender, address(this), BASE_TOKEN.allowance(msg.sender, address(this)));
+    }
+
+    function withdrawFunds() external
+    {
+        require(msg.sender == owner, 'SUCKS2BEU');
+        BASE_TOKEN.transfer(msg.sender, BASE_TOKEN.balanceOf(address(this)));
+    }
+
+
+
+
+    function multiSwap(
+        address[] calldata pools
+        , uint32[] calldata feesPPM
+        , uint256 initialAmount
+        , uint256 expectedFinalAmount
+
+    ) external {
+        require(msg.sender == owner, 'SUCKS2BEU');
+        require(pools.length >= 2, 'PATH_TOO_SHORT');
+
+        // transfer to 1st pool
+        _safeTransfer(address(BASE_TOKEN)
+                      , pools[0]
+                      , initialAmount);
+
+        address transitToken = address(BASE_TOKEN);
+        uint256 currentAmount = initialAmount;
+        for (uint i; i < pools.length; i++)
+        {
+            // get infos from the LP
+            IPancakePair pair = IPancakePair(pools[i]);
+            address t0 = pair.token0();
+            address t1 = pair.token1();
+            (uint reserveIn, uint reserveOut,) = pair.getReserves();
+
+            address tokenOut;
+            require(transitToken == t0 || transitToken == t1, 'BOFH: PAIR_NOT_IN_PATH');
+
+            // see which direction we are traversing the
+            if (t0 == transitToken)
+            {
+                tokenOut = t1;
+                // reserveIn is already reserve0, reserveOut is already reserve1
+            }
+            else
+            {
+                tokenOut = t0;
+                // transitToken is token1, need to swap reserveIn <=> reserveOut
+                (reserveIn, reserveOut) = (reserveOut, reserveIn);
+            }
+
+            uint[4] memory aaarghs = [currentAmount, reserveIn, reserveOut, feesPPM[i]];
+            uint amountOut = _getAmountOutWithFee(aaarghs);
+
+            uint256 amount0Out = 0;
+            uint256 amount1Out = 0;
+            if (t0 == transitToken)
+            {
+                amount1Out = amountOut;
+            }
+            else
+            {
+                amount0Out = amountOut;
+            }
+
+            // have the next swap send funds to the next pool or, if this is the last step of the path
+            // send the funds bach to the contract address
+            address to = i < (pools.length-1) ? pools[i+1] : address(this);
+
+            pair.swap(amount0Out, amount1Out, to, new bytes(0));
+            transitToken = tokenOut;
+            currentAmount = amountOut;
+        }
+
+        require(transitToken == address(BASE_TOKEN), 'BOFH: NON_CIRCULAR_PATH');
+        require(currentAmount >= expectedFinalAmount, 'BOFH: GREED_IS_GOOD');
+    }
 
 //    // **** SWAP ****
 //    // requires the initial amount to have already been sent to the pair
