@@ -1,4 +1,38 @@
-pragma solidity >= 0.6.12;
+// SPDX-License-Identifier: UNLICENSED
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //
+    //                                                           THE BOFH Contract
+    //                                                                v0.0.0
+    //
+    // About the entry point multiswap1:
+    //
+    // - receives an array of POOL addresses
+    //          \___ each with their respective fee estimation (in parts per 10E+6)
+    // - receives initialAmount of BASE_TOKEN (Wei units) to start the swap chain
+    // - receives expectedAmount of BASE_TOKEN (Wei units) as profit target. Execution reverts if target is missed
+    // - the initialAmount is transferred to the first pool of the path
+    // - a swap is performed with the next pool in line as its beneficiary address
+    // - at the end of the swap sequence, the beneficieary is the contract itself
+    // - if the described path is broken, too short, or is not circular respective of BASE_TOKEN, execution reverts
+    // - the code exploits calldata and bit shifting optimizations to save on gas. This is at the expense of clarity of argument encoding
+    // - the actual encoding of the parameters to be passed is laid out later. See multiswap1()
+    //
+    // Presequisites:
+    // - THE CONTRACT IS PRIVATE: only the deployer of the contract has the right to invoke its public functions
+    // - a sufficient amount of BASE_TOKEN must be approved to the contract ONCE, prior of calling multiswap()
+    // - in order to actually move the balance to the contract, call ONCE adoptAllowance()
+    // - for each subsequent funding injection, it is necessaty to repeat this same sequence (approve first then adoptAllowance)
+    //
+    // How to retrieve the balance:
+    // - call withdrawFunds(). The BASE_TOKEN funds are sent back to the caller. All of it. The contract has then zero balance of the token.
+    //
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+// IMPORTANT: using Solidity 0.8.9+ calldata optimizations here
+pragma solidity >= 0.8.10;
+
 
 // Minimal functionality of the BSC token we are going to use
 interface IBEP20 {
@@ -7,64 +41,10 @@ interface IBEP20 {
     function transfer(address to, uint value) external returns (bool);
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
     function allowance(address _owner, address spender) external view returns (uint256);
-
 }
-
-// helper methods for interacting with ERC20 tokens and sending
-// ETH that do not consistently return true/false
-library TransferHelper {
-    function safeApprove(address token, address to, uint value) internal {
-        // bytes4(keccak256(bytes('approve(address,uint256)')));
-        (bool success, bytes memory data) = token.call(abi.encodeWithSelector(0x095ea7b3, to, value));
-        require(success && (data.length == 0 || abi.decode(data, (bool))), 'TransferHelper: APPROVE_FAILED');
-    }
-
-    function safeTransfer(address token, address to, uint value) internal {
-        // bytes4(keccak256(bytes('transfer(address,uint256)')));
-        (bool success, bytes memory data) = token.call(abi.encodeWithSelector(0xa9059cbb, to, value));
-        require(success && (data.length == 0 || abi.decode(data, (bool))), 'TransferHelper: TRANSFER_FAILED');
-    }
-
-    function safeTransferFrom(address token, address from, address to, uint value) internal {
-        // bytes4(keccak256(bytes('transferFrom(address,address,uint256)')));
-        (bool success, bytes memory data) = token.call(abi.encodeWithSelector(0x23b872dd, from, to, value));
-        require(success && (data.length == 0 || abi.decode(data, (bool))), 'TransferHelper: TRANSFER_FROM_FAILED');
-    }
-
-    function safeTransferETH(address to, uint value) internal {
-        (bool success,) = to.call{value:value}(new bytes(0));
-        require(success, 'TransferHelper: ETH_TRANSFER_FAILED');
-    }
-}
-
-// ROUTER INTERFACE (reduced)
-
-interface IPancakeRouter01 {
-    function swapExactTokensForTokens(
-        uint amountIn,
-        uint amountOutMin,
-        address[] calldata path,
-        address to,
-        uint deadline
-    ) external returns (uint[] memory amounts);
-    function swapTokensForExactTokens(
-        uint amountOut,
-        uint amountInMax,
-        address[] calldata path,
-        address to,
-        uint deadline
-    ) external returns (uint[] memory amounts);
-
-    function quote(uint amountA, uint reserveA, uint reserveB) external pure returns (uint amountB);
-    function getAmountOut(uint amountIn, uint reserveIn, uint reserveOut) external pure returns (uint amountOut);
-    function getAmountIn(uint amountOut, uint reserveIn, uint reserveOut) external pure returns (uint amountIn);
-    function getAmountsOut(uint amountIn, address[] calldata path) external view returns (uint[] memory amounts);
-    function getAmountsIn(uint amountOut, address[] calldata path) external view returns (uint[] memory amounts);
-}
-
 
 // BARE BONES generic Pair interface (works with Uniswap v2 descendents, so basically all of them)
-interface IPancakePair {
+interface IGenericPair {
     function allowance(address owner, address spender) external view returns (uint);
     function approve(address spender, uint value) external returns (bool);
     function transfer(address to, uint value) external returns (bool);
@@ -79,7 +59,11 @@ interface IPancakePair {
     function sync() external;
 }
 
-contract BofhContract {
+
+contract BofhContract
+{
+    event Trace(uint value); // used for debugging
+
     address owner; // rightful owner of the contract
 
     constructor ()
@@ -88,43 +72,7 @@ contract BofhContract {
         owner = msg.sender;
     }
 
-
-    event Trace(uint value);
-
-
-
-    // address private constant CAKE_V2_ROUTER = 0x10ED43C718714eb63d5aA57B78B54704E256024E; // mainnet
-    address private constant CAKE_V2_ROUTER = 0x9Ac64Cc6e4415144C455BD8E4837Fea55603e5c3; // testnet
-    IBEP20 private constant BASE_TOKEN = IBEP20(0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd); // WBNB on testnet
-
-    // THIS is the entry point
-    function doCakeInternalSwaps(address[] calldata tokenPath  // array of LPs to be traversed (order of occurrence)
-                                 , uint256 initialAmount       // balance of initial token to use
-                                 , uint256 minProfit           // minimum yield to achieve, in startToken, othervise rollback
-                                 )
-    external
-    {
-        require(tokenPath.length > 3, 'PATH_TOO_SHORT');
-        address startToken = tokenPath[0];
-        emit Trace(1);
-        require(tokenPath[tokenPath.length-1] == startToken, 'NON_CIRCULAR_PATH');
-        IBEP20 startTokenI = IBEP20(startToken);
-        emit Trace(2);
-        startTokenI.transferFrom(msg.sender, address(this), initialAmount);
-        emit Trace(3);
-        startTokenI.approve(CAKE_V2_ROUTER, initialAmount);
-        emit Trace(4);
-
-        IPancakeRouter01(CAKE_V2_ROUTER).swapExactTokensForTokens(
-                initialAmount
-                , initialAmount+minProfit
-                , tokenPath
-                , msg.sender
-                , block.timestamp+20);
-        emit Trace(5);
-        // CASOMAI SERVISSE:
-        // startTokenI.transfer(msg.sender, startTokenI.balanceOf(address(this)));
-    }
+    address private constant BASE_TOKEN = 0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd; // WBNB on testnet
 
     function _safeTransfer(
         address token,
@@ -139,219 +87,128 @@ contract BofhContract {
         );
     }
 
+
     function mul(uint256 a, uint256 b) internal pure returns (uint256) {
         return a * b;
     }
 
+    // note: the bulk of the code passes around the calldata "args" array, which is the contract invocation argument.
+    //       Since Solidity 0.8.9 internal functions can share calldata things and avoid consuming gas to allocate additional stack or "memory"
 
-
-    function _getAmountOutWithFee(uint[4] memory args
-                                    // indexing is:
-                                    // [0] uint amountIn
-                                    // [1] uint reserveIn
-                                    // [2] uint reserveOut
-                                    // [3] uint feePPM parts-per-million
-                                    ) internal pure returns (uint amountOut)
+    function getFee(uint256[] calldata args, uint32 pool_idx) internal pure returns (uint32)
     {
-         require(args[0] > 0, 'BOFH: INSUFFICIENT_INPUT_AMOUNT');
-         require(args[1] > 0 && args[2] > 0, 'BOFH: INSUFFICIENT_LIQUIDITY');
-         uint amountInWithFee = mul(args[0], 1000000-args[3]);
-         uint numerator = mul(amountInWithFee, args[2]);
-         uint denominator = mul(args[2], 1000000) + amountInWithFee;
-         amountOut = numerator / denominator;
+        return uint32((args[args.length-2] >> (pool_idx*32)) & 0xffffffff); // truncate to uint32
+    }
+
+    function getAmount(uint256[] calldata args, uint32 idx) internal pure returns (uint256)
+    {
+        return (args[args.length-1] >> (idx*128)) & 0xffffffffffffffffffffffffffffffff; // truncate to uint128, plenty enough
+    }
+
+    function getPool(uint256[] calldata args, uint32 pool_idx) internal pure returns (address)
+    {
+        return address(uint160(args[pool_idx]));
+    }
+
+    function poolQuery(uint256[] calldata args, uint32 pool_idx, address tokenIn) internal view returns (uint, uint, bool, address)
+    {
+        IGenericPair pair = IGenericPair(getPool(args, pool_idx));
+        (uint reserveIn, uint reserveOut,) = pair.getReserves();
+        address tokenOut = pair.token1();
+        // 50/50 change of this being the case:
+        if (tokenIn != tokenOut)
+        {
+            // we got lucky
+            require(tokenIn == pair.token0(), 'PAIR_NOT_IN_PATH'); // for paranoia
+            return (reserveIn, reserveOut, false, tokenOut);
+        }
+
+        // else:
+        // we are going in with pool.token1(). Need to reverse assumptions:
+        tokenOut = pair.token0();
+        return (reserveIn, reserveOut, true, tokenOut);
+    }
+
+    function getAmountOutWithFee(  uint256[] calldata args
+                                 , uint32 pool_idx
+                                 , address tokenIn
+                                 , uint amountIn) internal view returns (uint ,uint, address)
+    {
+        require(amountIn > 0, 'BOFH: INSUFFICIENT_INPUT_AMOUNT');
+        (uint reserveIn, uint reserveOut, bool sellingToken0, address tokenOut) = poolQuery(args, pool_idx, tokenIn);
+
+        require(reserveIn > 0 && reserveOut > 0, 'BOFH: INSUFFICIENT_LIQUIDITY');
+
+        uint amountInWithFee = mul(amountIn, 1000000-getFee(args, pool_idx));
+        uint numerator = mul(amountInWithFee, reserveOut);
+        uint denominator = mul(reserveIn, 1000000) + amountInWithFee;
+        uint amountOut = numerator / denominator;
+        if (sellingToken0)
+        {
+            return (0, amountOut, tokenOut);
+        }
+        // else:
+        return (amountOut, 0, tokenOut);
      }
 
 
-    //function _getAmountOutWithFee(uint amountIn, uint reserveIn, uint reserveOut, uint feePPM /* parts-per-million */) internal pure returns (uint amountOut)
-    //{
-    //     require(amountIn > 0, 'BOFH: INSUFFICIENT_INPUT_AMOUNT');
-    //     require(reserveIn > 0 && reserveOut > 0, 'BOFH: INSUFFICIENT_LIQUIDITY');
-    //     uint amountInWithFee = mul(amountIn, 1000000-feePPM);
-    //     uint numerator = mul(amountInWithFee, reserveOut);
-    //     uint denominator = mul(reserveIn, 1000000) + amountInWithFee;
-    //     amountOut = numerator / denominator;
-    //}
-
-    // have the contract transfer its allowance to itself
-    function adoptAllowance() external
-    {
-        require(msg.sender == owner, 'SUCKS2BEU');
-        BASE_TOKEN.transferFrom(msg.sender, address(this), BASE_TOKEN.allowance(msg.sender, address(this)));
-    }
-
-    function withdrawFunds() external
-    {
-        require(msg.sender == owner, 'SUCKS2BEU');
-        BASE_TOKEN.transfer(msg.sender, BASE_TOKEN.balanceOf(address(this)));
-    }
-
-
-
-
-    function multiSwap(
-        address[] calldata pools
-        , uint32[] calldata feesPPM
-        , uint256 initialAmount
-        , uint256 expectedFinalAmount
-
+    // PUBLIC API: THIS is the entry point.
+    function multiswap1(
+        uint256[] calldata args
+        // args[0] pool0
+        // args[1] pool1
+        // args[N] poolN
+        // args[-2].bytes[0..31]    feesppm0 --> extract with getFee(args, 0)
+        // args[-2].bytes[32..63]   feesppm1 --> extract with getFee(args, 1)
+        // args[-2].bytes[64..95]   feesppm2 --> extract with getFee(args, 2)
+        // args[-2].bytes[66..127]  feesppm3 --> extract with getFee(args, 3)
+        // args[-2].bytes[128..256] <unused>
+        // args[-1].bytes[1..127]   initialAmount       --> extract with getAmount(args, 0)
+        // args[-1].bytes[128..256] expectedFinalAmount --> extract with getAmount(args, 1)
+        // minimal args.length is 2 pools + trailer --> 4 elements
     ) external {
-        require(msg.sender == owner, 'SUCKS2BEU');
-        require(pools.length >= 2, 'PATH_TOO_SHORT');
+
+        require(msg.sender == owner, 'SUX2BEU');
+        require(args.length < 4, 'PATH_TOO_SHORT');
+
+        address transitToken = BASE_TOKEN;
+        uint256 currentAmount = getAmount(args, 0);
 
         // transfer to 1st pool
-        _safeTransfer(address(BASE_TOKEN)
-                      , pools[0]
-                      , initialAmount);
+        _safeTransfer(BASE_TOKEN
+                      , getPool(args, 0)
+                      , currentAmount);
 
-        address transitToken = address(BASE_TOKEN);
-        uint256 currentAmount = initialAmount;
-        for (uint i; i < pools.length; i++)
+        for (uint32 i; i < args.length-2; i++)
         {
             // get infos from the LP
-            IPancakePair pair = IPancakePair(pools[i]);
-            address t0 = pair.token0();
-            address t1 = pair.token1();
-            (uint reserveIn, uint reserveOut,) = pair.getReserves();
+            (uint amount0Out, uint amount1Out, address tokenOut) = getAmountOutWithFee(args, i, transitToken, currentAmount);
+            address swapBeneficiary = i >= (args.length-2)   // it this the last swap of the path?
+                                      ? address(this)        //   \__ yes: the contract collects the output of the last swap
+                                      : getPool(args, i+1);  //   \__ no : send funds to the next pool
 
-            address tokenOut;
-            require(transitToken == t0 || transitToken == t1, 'BOFH: PAIR_NOT_IN_PATH');
-
-            // see which direction we are traversing the
-            if (t0 == transitToken)
-            {
-                tokenOut = t1;
-                // reserveIn is already reserve0, reserveOut is already reserve1
-            }
-            else
-            {
-                tokenOut = t0;
-                // transitToken is token1, need to swap reserveIn <=> reserveOut
-                (reserveIn, reserveOut) = (reserveOut, reserveIn);
-            }
-
-            uint[4] memory aaarghs = [currentAmount, reserveIn, reserveOut, feesPPM[i]];
-            uint amountOut = _getAmountOutWithFee(aaarghs);
-
-            uint256 amount0Out = 0;
-            uint256 amount1Out = 0;
-            if (t0 == transitToken)
-            {
-                amount1Out = amountOut;
-            }
-            else
-            {
-                amount0Out = amountOut;
-            }
-
-            // have the next swap send funds to the next pool or, if this is the last step of the path
-            // send the funds bach to the contract address
-            address to = i < (pools.length-1) ? pools[i+1] : address(this);
-
-            pair.swap(amount0Out, amount1Out, to, new bytes(0));
+            IGenericPair(getPool(args, i)).swap(amount0Out, amount1Out, swapBeneficiary, new bytes(0));
             transitToken = tokenOut;
-            currentAmount = amountOut;
+            currentAmount = amount0Out == 0 ? amount1Out : amount0Out;
         }
 
-        require(transitToken == address(BASE_TOKEN), 'BOFH: NON_CIRCULAR_PATH');
-        require(currentAmount >= expectedFinalAmount, 'BOFH: GREED_IS_GOOD');
+        require(transitToken == BASE_TOKEN, 'BOFH: NON_CIRCULAR_PATH');
+        require(currentAmount >= getAmount(args, 1), 'BOFH: GREED_IS_GOOD');
     }
 
-//    // **** SWAP ****
-//    // requires the initial amount to have already been sent to the pair
-//    function _swap(address pair,uint[] memory amounts, address[] memory path, address _to) internal virtual {
-//        (address input, address output) = (path[0], path[1]);
-//        (address token0,) = sortTokens(input, output);
-//        uint amountOut = amounts[1];
-//        (uint amount0Out, uint amount1Out) = input == token0 ? (uint(0), amountOut) : (amountOut, uint(0));
-//        IPancakePair(pair).swap(
-//            amount0Out, amount1Out, _to, new bytes(0)
-//        );
-//    }
-//
-//    function swapExactTokensForTokens(
-//        address pair,
-//        uint amountIn,
-//        uint amountOutMin,
-//        address[] memory path,
-//        address to
-//    ) public returns (uint256 amounts) {
-//        amounts = getAmountsOut(pair, amountIn, path);
-//        require(amounts >= amountOutMin, 'INSUFFICIENT_OUTPUT_AMOUNT');
-//        /*TransferHelper.safeApprove(path[0], pair, amountIn);
-//        TransferHelper.safeTransferFrom(
-//            path[0], from, pair, amountIn
-//        );*/
-//        // 1. transfer from last storage to next LP
-//        IBEP20(path[0]).approve(pair, amountIn);
-//        IBEP20(path[0]).transfer(pair, amountIn);
-//        uint[] memory amountArray = new uint[](2);
-//        amountArray[0] = amountIn;
-//        amountArray[1] = amounts;
-//        _swap(pair, amountArray, path, to);
-//        // 2. transfer to next LP or to caller if this was last swap
-//    }
-//
-//    function getAmountsOut(address pair, uint amountIn, address[] memory path) internal view returns (uint256) {
-//        require(path.length == 2, 'INVALID_PATH');
-//        (uint reserveIn, uint reserveOut) = getReserves(pair, path[0], path[1]);
-//        uint256 amountOut = getAmountOut(amountIn, reserveIn, reserveOut);
-//        return amountOut;
-//    }
-//
-//    // given an input amount of an asset and pair reserves, returns the maximum output amount of the other asset
-//    function getAmountOut(uint amountIn, uint reserveIn, uint reserveOut) internal pure returns (uint amountOut) {
-//        require(amountIn > 0, 'INSUFFICIENT_INPUT_AMOUNT');
-//        require(reserveIn > 0 && reserveOut > 0, 'INSUFFICIENT_LIQUIDITY');
-//        uint amountInWithFee = amountIn*998;
-//        uint numerator = amountInWithFee* reserveOut;
-//        uint denominator = reserveIn*1000 + amountInWithFee;
-//        amountOut = numerator / denominator;
-//    }
-//
-//    // fetches and sorts the reserves for a pair
-//    function getReserves(address pair, address tokenA, address tokenB) internal view returns (uint reserveA, uint reserveB) {
-//        (address token0,) = sortTokens(tokenA, tokenB);
-//        (uint reserve0, uint reserve1,) = IPancakePair(pair).getReserves();
-//        (reserveA, reserveB) = tokenA == token0 ? (reserve0, reserve1) : (reserve1, reserve0);
-//    }
-//    // returns sorted token addresses, used to handle return values from pairs sorted in this order
-//    function sortTokens(address tokenA, address tokenB) internal pure returns (address token0, address token1) {
-//        require(tokenA != tokenB, 'IDENTICAL_ADDRESSES');
-//        (token0, token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
-//        require(token0 != address(0), 'ZERO_ADDRESS');
-//    }
-//
-//    // THIS is the entry point
-//    function doSwap(IPancakePair[] memory pairs // array of LPs to be traversed (order of occurrence)
-//                    , IBEP20 startToken         // initial token (starting liquidity)
-//                    , uint256 initialAmount          // balance of initial token to use
-//                    , uint256 minProfit         // minimum yield to achieve, in startToken, othervise rollback
-//                    )
-//    public
-//    {
-//        address currentToken = address(startToken);
-//        uint256 currentAmount = initialAmount;
-//
-////        TransferHelper.safeTransferFrom(
-////            currentToken, msg.sender, address(this), initialAmount
-////        );
-//        address[] memory path = new address[](2);
-//
-//        for(uint i = 0; i < pairs.length; i++)
-//        {
-//            path[0] = pairs[i].token0();
-//            path[1] = pairs[i].token1();
-//            if(path[1] == currentToken)
-//            {
-//                path[1] = path[0];
-//                path[0] = currentToken;
-//            }
-//            swapExactTokensForTokens(address(pairs[i]), currentAmount, 0, path, address(this));
-//            currentToken = path[1];
-//            currentAmount = IBEP20(currentToken).balanceOf(address(this));
-//        }
-//
-//        require(currentAmount >= initialAmount+minProfit, "NO_GAIN");
-//        require(tokenIn == address(startToken), "NON_CIRCULAR_PATH");
-//    }
+    // PUBLIC API: have the contract move its allowance to itself
+    function adoptAllowance() external
+    {
+        require(msg.sender == owner, 'SUX2BEU');
+        IBEP20 token = IBEP20(BASE_TOKEN);
+        token.transferFrom(msg.sender, address(this), token.allowance(msg.sender, address(this)));
+    }
+
+    // PUBLIC API: have the contract send its token balance to the caller
+    function withdrawFunds() external
+    {
+        require(msg.sender == owner, 'SUX2BEU');
+        IBEP20 token = IBEP20(BASE_TOKEN);
+        token.transfer(msg.sender, token.balanceOf(address(this)));
+    }
 }
