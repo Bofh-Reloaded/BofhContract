@@ -63,11 +63,14 @@ interface IGenericPair {
 contract BofhContract
 {
     event Trace(uint value); // used for debugging
+    event Trace2(uint v0, uint v1); // used for debugging
+    event Trace3(uint v0, uint v1, uint v2); // used for debugging
+    event Trace2aaa(uint v0, uint v1, address addr0, address addr1, address addr2); // used for debugging
 
     address private owner; // rightful owner of the contract
     address private baseToken; // = 0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd; // WBNB on testnet
 
-    constructor (address ctrBaseToken)
+    constructor(address ctrBaseToken)
     {
         // owner is set at deploy time, set to the transaction signer
         owner = msg.sender;
@@ -75,16 +78,13 @@ contract BofhContract
     }
 
 
-    function _safeTransfer(
-        address token,
-        address to,
-        uint256 value
-    ) internal {
+    function safeTransfer(address to, uint256 value) internal
+    {
         // bytes4(keccak256(bytes('transfer(address,uint256)')));
-        (bool success, bytes memory data) = token.call(abi.encodeWithSelector(0xa9059cbb, to, value));
+        (bool success, bytes memory data) = baseToken.call(abi.encodeWithSelector(0xa9059cbb, to, value));
         require(
             success && (data.length == 0 || abi.decode(data, (bool))),
-            'BOFH: transfer failed'
+            'BOFH: TRANSFER_FAILED'
         );
     }
 
@@ -96,9 +96,9 @@ contract BofhContract
     // note: the bulk of the code passes around the calldata "args" array, which is the contract invocation argument.
     //       Since Solidity 0.8.9 internal functions can share calldata things and avoid consuming gas to allocate additional stack or "memory"
 
-    function getFee(uint256[] calldata args, uint32 pool_idx) internal pure returns (uint32)
+    function getFee(uint256[] calldata args, uint32 idx) internal pure returns (uint32)
     {
-        return uint32((args[args.length-2] >> (pool_idx*32)) & 0xffffffff); // truncate to uint32
+        return uint32((args[args.length-2] >> (idx*32)) & 0xffffffff); // truncate to uint32
     }
 
     function getAmount(uint256[] calldata args, uint32 idx) internal pure returns (uint256)
@@ -106,18 +106,18 @@ contract BofhContract
         return (args[args.length-1] >> (idx*128)) & 0xffffffffffffffffffffffffffffffff; // truncate to uint128, plenty enough
     }
 
-    function getPool(uint256[] calldata args, uint32 pool_idx) internal pure returns (address)
+    function getPool(uint256[] calldata args, uint32 idx) internal pure returns (address)
     {
-        return address(uint160(args[pool_idx]));
+        return address(uint160(args[idx]));
     }
 
-    function poolQuery(uint256[] calldata args, uint32 pool_idx, address tokenIn)
+    function poolQuery(uint256[] calldata args, uint32 idx, address tokenIn)
         internal
         // view
         returns (uint, uint, bool, address)
     {
         emit Trace(0x1b00);
-        IGenericPair pair = IGenericPair(getPool(args, pool_idx));
+        IGenericPair pair = IGenericPair(getPool(args, idx));
         (uint reserveIn, uint reserveOut,) = pair.getReserves();
         emit Trace(0x1b01);
         address tokenOut = pair.token1();
@@ -141,7 +141,7 @@ contract BofhContract
     }
 
     function getAmountOutWithFee(  uint256[] calldata args
-                                 , uint32 pool_idx
+                                 , uint32 idx
                                  , address tokenIn
                                  , uint amountIn)
         internal
@@ -150,16 +150,18 @@ contract BofhContract
     {
         emit Trace(0x1a00);
         require(amountIn > 0, 'BOFH: INSUFFICIENT_INPUT_AMOUNT');
-        (uint reserveIn, uint reserveOut, bool sellingToken0, address tokenOut) = poolQuery(args, pool_idx, tokenIn);
+        (uint reserveIn, uint reserveOut, bool sellingToken0, address tokenOut) = poolQuery(args, idx, tokenIn);
         emit Trace(0x1a01);
 
-        require(reserveIn > 0 && reserveOut > 0, 'BOFH: INSUFFICIENT_LIQUIDITY');
+        require(reserveIn > 0 || reserveOut > 0, 'BOFH: INSUFFICIENT_LIQUIDITY');
 
-        uint amountInWithFee = mul(amountIn, 1000000-getFee(args, pool_idx));
+        uint amountInWithFee = mul(amountIn, 1000000-getFee(args, idx));
+        emit Trace3(amountIn, 1000000-getFee(args, idx), amountInWithFee);
         uint numerator = mul(amountInWithFee, reserveOut);
         uint denominator = mul(reserveIn, 1000000) + amountInWithFee;
         uint amountOut = numerator / denominator;
         emit Trace(0x1a02);
+        emit Trace3(numerator, denominator, amountOut);
         if (sellingToken0)
         {
             emit Trace(0x1a03);
@@ -185,20 +187,20 @@ contract BofhContract
         // args[-1].bits[1..127]   initialAmount       --> extract with getAmount(args, 0)
         // args[-1].bits[128..256] expectedFinalAmount --> extract with getAmount(args, 1)
         // minimal args.length is 2 pools + trailer --> 4 elements
-    ) external {
-
+    ) external returns(uint)
+    {
         require(msg.sender == owner, 'SUX2BEU');
-        require(args.length < 4, 'PATH_TOO_SHORT');
+        require(args.length > 4, 'PATH_TOO_SHORT');
 
         address transitToken = baseToken;
         emit Trace(0x1000);
         uint256 currentAmount = getAmount(args, 0);
+        require(currentAmount <= IBEP20(baseToken).balanceOf(address(this)), 'BOFH: GIMMIE_MONEY');
+        emit Trace2(currentAmount, IBEP20(baseToken).balanceOf(address(this)));
 
         // transfer to 1st pool
         emit Trace(0x1100);
-        _safeTransfer(baseToken
-                      , getPool(args, 0)
-                      , currentAmount);
+        safeTransfer(getPool(args, 0), currentAmount);
 
         for (uint32 i; i < args.length-2; i++)
         {
@@ -211,6 +213,7 @@ contract BofhContract
                                       : getPool(args, i+1);  //   \__ no : send funds to the next pool
 
             emit Trace(0x1500+(i<<4));
+            emit Trace2aaa(amount0Out, amount1Out, getPool(args, i), tokenOut, swapBeneficiary);
             IGenericPair(getPool(args, i)).swap(amount0Out, amount1Out, swapBeneficiary, new bytes(0));
             emit Trace(0x1600+(i<<4));
             transitToken = tokenOut;
@@ -219,8 +222,10 @@ contract BofhContract
 
         emit Trace(0x1700);
         require(transitToken == baseToken, 'BOFH: NON_CIRCULAR_PATH');
-        require(currentAmount >= getAmount(args, 1), 'BOFH: GREED_IS_GOOD');
+        //require(currentAmount >= getAmount(args, 1), 'BOFH: GREED_IS_GOOD');
         emit Trace(0x1800);
+
+        return currentAmount;
     }
 
     // PUBLIC API: have the contract move its allowance to itself
@@ -248,4 +253,54 @@ contract BofhContract
         emit Trace(0x4000);
         owner = newOwner;
     }
+
+    // PUBLIC API: this removes the contract from the chain status (however leaves its copy in its deploy block)
+    //             - also sends any credited token back to the caller
+    //             - also, the blockchain rebates the caller some coin because this frees up storage
+    //             - IT'S A GOOD IDEA to call this upon obsoleted contracts. It ensures funds recovery and that
+    //               broken contracts won't be callable again.
+    function kill() external
+    {
+        require(msg.sender == owner, 'SUX2BEU');
+        IBEP20 token = IBEP20(baseToken);
+        token.transfer(msg.sender, token.balanceOf(address(this)));
+        emit Trace(0x5000);
+        selfdestruct(payable(msg.sender));
+    }
+
+
+
+    // Test callpoints. Remove in production!
+
+    function test_getFee(uint256[] calldata args, uint32 idx) external returns (uint32)
+    {
+        return getFee(args, idx);
+    }
+
+    function test_getAmount(uint256[] calldata args, uint32 idx) external returns (uint256)
+    {
+        return getAmount(args, idx);
+    }
+
+    function test_getPool(uint256[] calldata args, uint32 idx) external returns (address)
+    {
+        return getPool(args, idx);
+    }
+
+    function test_poolQuery(uint256[] calldata args, uint32 idx, address tokenIn) external returns (uint, uint, bool, address)
+    {
+        return poolQuery(args, idx, tokenIn);
+    }
+
+    function test_getAmountOutWithFee(  uint256[] calldata args
+                                      , uint32 idx
+                                      , address tokenIn
+                                      , uint amountIn)
+        external
+        returns (uint, uint, address)
+    {
+        return getAmountOutWithFee(args, idx, tokenIn, amountIn);
+    }
+
+
 }
