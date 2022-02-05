@@ -41,6 +41,7 @@ interface IBEP20 {
     function transfer(address to, uint value) external returns (bool);
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
     function allowance(address _owner, address spender) external view returns (uint256);
+    function symbol() external view returns (string memory);
 }
 
 // BARE BONES generic Pair interface (works with Uniswap v2 descendents, so basically all of them)
@@ -62,11 +63,6 @@ interface IGenericPair {
 
 contract BofhContract
 {
-    event Trace(uint value); // used for debugging
-    event Trace2(uint v0, uint v1); // used for debugging
-    event Trace3(uint v0, uint v1, uint v2); // used for debugging
-    event Trace2aaa(uint v0, uint v1, address addr0, address addr1, address addr2); // used for debugging
-
     address private owner; // rightful owner of the contract
     address private baseToken; // = 0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd; // WBNB on testnet
 
@@ -76,7 +72,6 @@ contract BofhContract
         owner = msg.sender;
         baseToken = ctrBaseToken;
     }
-
 
     function safeTransfer(address to, uint256 value) internal
     {
@@ -116,28 +111,22 @@ contract BofhContract
         // view
         returns (uint, uint, bool, address)
     {
-        emit Trace(0x1b00);
         IGenericPair pair = IGenericPair(getPool(args, idx));
         (uint reserveIn, uint reserveOut,) = pair.getReserves();
-        emit Trace(0x1b01);
         address tokenOut = pair.token1();
         // 50/50 change of this being the case:
-        emit Trace(0x1b02);
         if (tokenIn != tokenOut)
         {
             // we got lucky
-            emit Trace(0x1b03);
             require(tokenIn == pair.token0(), 'PAIR_NOT_IN_PATH'); // for paranoia
-            emit Trace(0x1b04);
-            return (reserveIn, reserveOut, false, tokenOut);
+            return (reserveIn, reserveOut, true, tokenOut);
         }
 
         // else:
         // we are going in with pool.token1(). Need to reverse assumptions:
-        emit Trace(0x1b05);
         tokenOut = pair.token0();
-        emit Trace(0x1b06);
-        return (reserveIn, reserveOut, true, tokenOut);
+        (reserveOut, reserveIn) = (reserveIn, reserveOut);
+        return (reserveIn, reserveOut, false, tokenOut);
     }
 
     function getAmountOutWithFee(  uint256[] calldata args
@@ -148,27 +137,19 @@ contract BofhContract
         // view
         returns (uint ,uint, address)
     {
-        emit Trace(0x1a00);
         require(amountIn > 0, 'BOFH: INSUFFICIENT_INPUT_AMOUNT');
         (uint reserveIn, uint reserveOut, bool sellingToken0, address tokenOut) = poolQuery(args, idx, tokenIn);
-        emit Trace(0x1a01);
-
-        require(reserveIn > 0 || reserveOut > 0, 'BOFH: INSUFFICIENT_LIQUIDITY');
+        require(reserveIn > 0 && reserveOut > 0, 'BOFH: INSUFFICIENT_LIQUIDITY');
 
         uint amountInWithFee = mul(amountIn, 1000000-getFee(args, idx));
-        emit Trace3(amountIn, 1000000-getFee(args, idx), amountInWithFee);
         uint numerator = mul(amountInWithFee, reserveOut);
         uint denominator = mul(reserveIn, 1000000) + amountInWithFee;
         uint amountOut = numerator / denominator;
-        emit Trace(0x1a02);
-        emit Trace3(numerator, denominator, amountOut);
         if (sellingToken0)
         {
-            emit Trace(0x1a03);
             return (0, amountOut, tokenOut);
         }
         // else:
-        emit Trace(0x1a04);
         return (amountOut, 0, tokenOut);
      }
 
@@ -193,37 +174,31 @@ contract BofhContract
         require(args.length > 4, 'PATH_TOO_SHORT');
 
         address transitToken = baseToken;
-        emit Trace(0x1000);
         uint256 currentAmount = getAmount(args, 0);
         require(currentAmount <= IBEP20(baseToken).balanceOf(address(this)), 'BOFH: GIMMIE_MONEY');
-        emit Trace2(currentAmount, IBEP20(baseToken).balanceOf(address(this)));
 
         // transfer to 1st pool
-        emit Trace(0x1100);
         safeTransfer(getPool(args, 0), currentAmount);
 
         for (uint32 i; i < args.length-2; i++)
         {
-            emit Trace(0x1300+(i<<4));
             // get infos from the LP
             (uint amount0Out, uint amount1Out, address tokenOut) = getAmountOutWithFee(args, i, transitToken, currentAmount);
-            emit Trace(0x1400+(i<<4));
             address swapBeneficiary = i >= (args.length-2)   // it this the last swap of the path?
                                       ? address(this)        //   \__ yes: the contract collects the output of the last swap
                                       : getPool(args, i+1);  //   \__ no : send funds to the next pool
+            {
+                // limit this specific stack frame:
+                IGenericPair pair = IGenericPair(getPool(args, i));
+                pair.swap(amount0Out, amount1Out, swapBeneficiary, new bytes(0));
 
-            emit Trace(0x1500+(i<<4));
-            emit Trace2aaa(amount0Out, amount1Out, getPool(args, i), tokenOut, swapBeneficiary);
-            IGenericPair(getPool(args, i)).swap(amount0Out, amount1Out, swapBeneficiary, new bytes(0));
-            emit Trace(0x1600+(i<<4));
+            }
             transitToken = tokenOut;
             currentAmount = amount0Out == 0 ? amount1Out : amount0Out;
         }
 
-        emit Trace(0x1700);
         require(transitToken == baseToken, 'BOFH: NON_CIRCULAR_PATH');
-        //require(currentAmount >= getAmount(args, 1), 'BOFH: GREED_IS_GOOD');
-        emit Trace(0x1800);
+        require(currentAmount >= getAmount(args, 1), 'BOFH: GREED_IS_GOOD');
 
         return currentAmount;
     }
@@ -232,7 +207,6 @@ contract BofhContract
     function adoptAllowance() external
     {
         require(msg.sender == owner, 'SUX2BEU');
-        emit Trace(0x2000);
         IBEP20 token = IBEP20(baseToken);
         token.transferFrom(msg.sender, address(this), token.allowance(msg.sender, address(this)));
     }
@@ -241,7 +215,6 @@ contract BofhContract
     function withdrawFunds() external
     {
         require(msg.sender == owner, 'SUX2BEU');
-        emit Trace(0x3000);
         IBEP20 token = IBEP20(baseToken);
         token.transfer(msg.sender, token.balanceOf(address(this)));
     }
@@ -250,23 +223,9 @@ contract BofhContract
     function changeOwner(address newOwner) external
     {
         require(msg.sender == owner, 'SUX2BEU');
-        emit Trace(0x4000);
         owner = newOwner;
     }
 
-    // PUBLIC API: this removes the contract from the chain status (however leaves its copy in its deploy block)
-    //             - also sends any credited token back to the caller
-    //             - also, the blockchain rebates the caller some coin because this frees up storage
-    //             - IT'S A GOOD IDEA to call this upon obsoleted contracts. It ensures funds recovery and that
-    //               broken contracts won't be callable again.
-    function kill() external
-    {
-        require(msg.sender == owner, 'SUX2BEU');
-        IBEP20 token = IBEP20(baseToken);
-        token.transfer(msg.sender, token.balanceOf(address(this)));
-        emit Trace(0x5000);
-        selfdestruct(payable(msg.sender));
-    }
 
 
 
@@ -300,6 +259,27 @@ contract BofhContract
         returns (uint, uint, address)
     {
         return getAmountOutWithFee(args, idx, tokenIn, amountIn);
+    }
+
+
+    function test_Hello()
+        external
+        returns (string memory)
+    {
+        return "Hello, World!";
+    }
+
+    // PUBLIC API: this removes the contract from the chain status (however leaves its copy in its deploy block)
+    //             - also sends any credited token back to the caller
+    //             - also, the blockchain rebates the caller some coin because this frees up storage
+    //             - IT'S A GOOD IDEA to call this upon obsoleted contracts. It ensures funds recovery and that
+    //               broken contracts won't be callable again.
+    function kill() external
+    {
+        require(msg.sender == owner, 'SUX2BEU');
+        IBEP20 token = IBEP20(baseToken);
+        token.transfer(msg.sender, token.balanceOf(address(this)));
+        selfdestruct(payable(msg.sender));
     }
 
 
