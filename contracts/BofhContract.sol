@@ -229,11 +229,11 @@ contract BofhContract
         // transfer to 1st pool
         safeTransfer(getPool(0), currentAmount);
 
-        for (uint i; i < args_length-2; i++)
+        for (uint i; i < args_length-1; i++)
         {
             // get infos from the LP
             (uint amount0Out, uint amount1Out, address tokenOut) = getAmountOutWithFee(i, transitToken, currentAmount);
-            address swapBeneficiary = i >= (args_length-2)   // it this the last swap of the path?
+            address swapBeneficiary = i >= (args_length-1)   // it this the last swap of the path?
                                       ? address(this)        //   \__ yes: the contract collects the output of the last swap
                                       : getPool(i+1);  //   \__ no : send funds to the next pool
             {
