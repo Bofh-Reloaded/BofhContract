@@ -73,13 +73,32 @@ contract BofhContract
         baseToken = ctrBaseToken;
     }
 
+    function getAdmin() external pure returns (address)
+    {
+        return owner;
+    }
+
+    function getBaseToken() external pure returns (address)
+    {
+        return baseToken;
+    }
+
+    modifier adminRestricted()
+    {
+        require(msg.sender == owner, 'BOFH:SUX2BEU');
+        // Do not forget the "_;"! It will
+        // be replaced by the actual function
+        // body when the modifier is used.
+        _;
+    }
+
     function safeTransfer(address to, uint256 value) internal
     {
         // bytes4(keccak256(bytes('transfer(address,uint256)')));
         (bool success, bytes memory data) = baseToken.call(abi.encodeWithSelector(0xa9059cbb, to, value));
         require(
             success && (data.length == 0 || abi.decode(data, (bool))),
-            'BOFH: TRANSFER_FAILED'
+            'BOFH:TRANSFER_FAILED'
         );
     }
 
@@ -118,7 +137,7 @@ contract BofhContract
         if (tokenIn != tokenOut)
         {
             // we got lucky
-            require(tokenIn == pair.token0(), 'PAIR_NOT_IN_PATH'); // for paranoia
+            require(tokenIn == pair.token0(), 'BOFH:PAIR_NOT_IN_PATH'); // for paranoia
             return (reserveIn, reserveOut, true, tokenOut);
         }
 
@@ -137,9 +156,9 @@ contract BofhContract
         // view
         returns (uint ,uint, address)
     {
-        require(amountIn > 0, 'BOFH: INSUFFICIENT_INPUT_AMOUNT');
+        require(amountIn > 0, 'BOFH:INSUFFICIENT_INPUT_AMOUNT');
         (uint reserveIn, uint reserveOut, bool sellingToken0, address tokenOut) = poolQuery(args, idx, tokenIn);
-        require(reserveIn > 0 && reserveOut > 0, 'BOFH: INSUFFICIENT_LIQUIDITY');
+        require(reserveIn > 0 && reserveOut > 0, 'BOFH:INSUFFICIENT_LIQUIDITY');
 
         uint amountInWithFee = mul(amountIn, 1000000-getFee(args, idx));
         uint numerator = mul(amountInWithFee, reserveOut);
@@ -168,14 +187,16 @@ contract BofhContract
         // args[-1].bits[1..127]   initialAmount       --> extract with getAmount(args, 0)
         // args[-1].bits[128..256] expectedFinalAmount --> extract with getAmount(args, 1)
         // minimal args.length is 2 pools + trailer --> 4 elements
-    ) external returns(uint)
+    )
+    external
+    adminRestricted()
+    returns(uint)
     {
-        require(msg.sender == owner, 'SUX2BEU');
-        require(args.length > 4, 'PATH_TOO_SHORT');
+        require(args.length > 3, 'BOFH:PATH_TOO_SHORT');
 
         address transitToken = baseToken;
         uint256 currentAmount = getAmount(args, 0);
-        require(currentAmount <= IBEP20(baseToken).balanceOf(address(this)), 'BOFH: GIMMIE_MONEY');
+        require(currentAmount <= IBEP20(baseToken).balanceOf(address(this)), 'BOFH:GIMMIE_MONEY');
 
         // transfer to 1st pool
         safeTransfer(getPool(args, 0), currentAmount);
@@ -197,36 +218,52 @@ contract BofhContract
             currentAmount = amount0Out == 0 ? amount1Out : amount0Out;
         }
 
-        require(transitToken == baseToken, 'BOFH: NON_CIRCULAR_PATH');
-        require(currentAmount >= getAmount(args, 1), 'BOFH: GREED_IS_GOOD');
+        require(transitToken == baseToken, 'BOFH:NON_CIRCULAR_PATH');
+        require(currentAmount >= getAmount(args, 1), 'BOFH:GREED_IS_GOOD');
 
         return currentAmount;
     }
 
     // PUBLIC API: have the contract move its allowance to itself
-    function adoptAllowance() external
+    function adoptAllowance()
+    external
+    adminRestricted()
     {
-        require(msg.sender == owner, 'SUX2BEU');
         IBEP20 token = IBEP20(baseToken);
         token.transferFrom(msg.sender, address(this), token.allowance(msg.sender, address(this)));
     }
 
     // PUBLIC API: have the contract send its token balance to the caller
-    function withdrawFunds() external
+    function withdrawFunds()
+    external
+    adminRestricted()
     {
-        require(msg.sender == owner, 'SUX2BEU');
         IBEP20 token = IBEP20(baseToken);
         token.transfer(msg.sender, token.balanceOf(address(this)));
     }
 
     // PUBLIC API: adopt another rightful admin address
-    function changeOwner(address newOwner) external
+    function changeAdmin(address newOwner)
+    external
+    adminRestricted()
     {
-        require(msg.sender == owner, 'SUX2BEU');
         owner = newOwner;
     }
 
 
+    // PUBLIC API: this removes the contract from the chain status (however leaves its copy in its deploy block)
+    //             - also sends any credited token back to the caller
+    //             - also, the blockchain rebates the caller some coin because this frees up storage
+    //             - IT'S A GOOD IDEA to call this upon obsoleted contracts. It ensures funds recovery and that
+    //               broken contracts won't be callable again.
+    function kill()
+    external
+    adminRestricted()
+    {
+        IBEP20 token = IBEP20(baseToken);
+        token.transfer(msg.sender, token.balanceOf(address(this)));
+        selfdestruct(payable(msg.sender));
+    }
 
 
     // Test callpoints. Remove in production!
@@ -269,18 +306,6 @@ contract BofhContract
         return "Hello, World!";
     }
 
-    // PUBLIC API: this removes the contract from the chain status (however leaves its copy in its deploy block)
-    //             - also sends any credited token back to the caller
-    //             - also, the blockchain rebates the caller some coin because this frees up storage
-    //             - IT'S A GOOD IDEA to call this upon obsoleted contracts. It ensures funds recovery and that
-    //               broken contracts won't be callable again.
-    function kill() external
-    {
-        require(msg.sender == owner, 'SUX2BEU');
-        IBEP20 token = IBEP20(baseToken);
-        token.transfer(msg.sender, token.balanceOf(address(this)));
-        selfdestruct(payable(msg.sender));
-    }
 
 
 }
