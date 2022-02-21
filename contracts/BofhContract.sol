@@ -5,7 +5,7 @@
     //                                                           THE BOFH Contract
     //                                                                v0.0.1
     //
-    // About the entry point multiswap1:
+    // About the entry point multiswap():
     //
     // - receives an array of POOL addresses
     //          \___ each with their respective fee estimation (in parts per 10E+6)
@@ -16,7 +16,7 @@
     // - at the end of the swap sequence, the beneficieary is the contract itself
     // - if the described path is broken, too short, or is not circular respective of baseToken, execution reverts
     // - the code exploits calldata and bit shifting optimizations to save on gas. This is at the expense of clarity of argument encoding
-    // - the actual encoding of the parameters to be passed is laid out later. See multiswap1()
+    // - the actual encoding of the parameters to be passed is laid out later. See multiswap_internal()
     //
     // Presequisites:
     // - THE CONTRACT IS PRIVATE: only the deployer of the contract has the right to invoke its public functions
@@ -144,6 +144,7 @@ contract BofhContract
     {
         return uint128(getU256_last());
     }
+
     function getExpectedAmount() internal pure returns (uint256)
     {
         return uint128(getU256_last() >> 128);
@@ -205,16 +206,15 @@ contract BofhContract
     function multiswap_internal(
         uint args_length
         // INPUT ARGS: uint256[] calldata args, read directly from calldata memory
-        // args[0] pool0
-        // args[1] pool1
-        // args[N] poolN
-        // args[-2].bits[0..31]    feesppm0 --> extract with getFee(args, 0)
-        // args[-2].bits[32..63]   feesppm1 --> extract with getFee(args, 1)
-        // args[-2].bits[64..95]   feesppm2 --> extract with getFee(args, 2)
-        // args[-2].bits[66..127]  feesppm3 --> extract with getFee(args, 3)
-        // args[-2].bits[128..256] <unused>
-        // args[-1].bits[1..127]   initialAmount       --> extract with getInitialAmount()
-        // args[-1].bits[128..256] expectedFinalAmount --> extract with getExpectedAmount()
+        // args[0].bits[1..159]=pool0_address --> extract with getPool(0)
+        // args[1].bits[1..159]=pool1_address --> extract with getPool(1)
+        // args[N].bits[1..159]=poolN_address --> extract with getPool(N)
+        // args[0].bits[160..255]=pool0_feePPM (parts per million) --> getFee(0)
+        // args[1].bits[160..255]=pool1_feePPM (parts per million) --> getFee(1)
+        // args[N].bits[160..255]=poolN_feePPM (parts per million) --> getFee(N)
+        // [...]
+        // args[args.length-1].bits[1..127]   initialAmount       --> extract with getInitialAmount()
+        // args[args.length-1].bits[128..256] expectedFinalAmount --> extract with getExpectedAmount()
         // minimal args.length is 2 pools + trailer --> 4 elements
     )
     internal
@@ -229,13 +229,13 @@ contract BofhContract
         // transfer to 1st pool
         safeTransfer(getPool(0), currentAmount);
 
-        for (uint i; i < args_length-1; i++)
+        for (uint i=0; i < args_length-1; i++)
         {
             // get infos from the LP
             (uint amount0Out, uint amount1Out, address tokenOut) = getAmountOutWithFee(i, transitToken, currentAmount);
-            address swapBeneficiary = i >= (args_length-1)   // it this the last swap of the path?
+            address swapBeneficiary = i >= (args_length-2)   // it this the last swap of the path?
                                       ? address(this)        //   \__ yes: the contract collects the output of the last swap
-                                      : getPool(i+1);  //   \__ no : send funds to the next pool
+                                      : getPool(i+1);        //   \__ no : send funds to the next pool
             {
                 // limit this specific stack frame:
                 IGenericPair pair = IGenericPair(getPool(i));
