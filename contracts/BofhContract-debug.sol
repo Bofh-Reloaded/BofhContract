@@ -216,7 +216,7 @@ contract BofhContract
         }
 
         require(transitToken == baseToken, 'BOFH:NON_CIRCULAR_PATH');
-        require(currentAmount >= getExpectedAmount(), 'BOFH:GREED_IS_GOOD');
+        require(currentAmount >= getExpectedAmount(), 'BOFH:MP');
 
         return currentAmount;
     }
