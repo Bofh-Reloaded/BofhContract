@@ -28,7 +28,7 @@ interface IGenericPair {
 }
 contract BofhContract
 {
-event Trace(uint line); event Print(string msg); event Print(string msg, string val); event Print(string msg, uint val); event Print(string msg, address val); event Print(string msg, string msg2, string val); event Print(string msg, string msg2, uint val); event Print(string msg, string msg2, address val);
+
 
     address private owner;
     address private baseToken;
@@ -155,18 +155,18 @@ event Trace(uint line); event Print(string msg); event Print(string msg, string 
         (uint reserveIn, uint reserveOut, bool sellingToken0, address tokenOut) = poolQuery(idx, tokenIn);
         require(reserveIn > 0 && reserveOut > 0, 'BOFH:INSUFFICIENT_LIQUIDITY');
 
-        emit Print("amountIn", (amountIn));
-        emit Print("reserveIn", (reserveIn));
-        emit Print("reserveOut", (reserveOut));
-        emit Print("getFee(idx)", (getFee(idx)));
+       
+       
+       
+       
         uint amountInWithFee = mul(amountIn, 1000000-getFee(idx));
-        emit Print("amountInWithFee", (amountInWithFee));
+       
         uint numerator = mul(amountInWithFee, reserveOut);
-        emit Print("numerator", (numerator));
+       
         uint denominator = mul(reserveIn, 1000000) + amountInWithFee;
-        emit Print("denominator", (denominator));
+       
         uint amountOut = numerator / denominator;
-        emit Print("amountOut", (amountOut));
+       
         if (sellingToken0)
         {
             return (0, amountOut, tokenOut);
@@ -195,16 +195,16 @@ event Trace(uint line); event Print(string msg); event Print(string msg, string 
         for (uint i=0; i < args_length-1; i++)
         {
 
-            emit Print("getPool(i)", (getPool(i)));
+           
             (uint amount0Out, uint amount1Out, address tokenOut) = getAmountOutWithFee(i, transitToken, currentAmount);
             address swapBeneficiary = i >= (args_length-2)
                                       ? address(this)
                                       : getPool(i+1);
 
-                if (getOptions(i, 0x01))
-                {
-                    swapBeneficiary = address(this);
-                }
+
+
+
+
 
             {
 
