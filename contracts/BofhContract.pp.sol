@@ -65,49 +65,10 @@ interface IGenericPair {
     function sync() external;
 }
 
-#if defined(NDEBUG) && NDEBUG
-// production
-    #  define DEBUG_EVENTS
-    #  define print(...)
-    #  define log_value(val)
-    #  define log_value(val)
-    #  define trace()
-    #  define DEBUG 0
-#else
-#  define DEBUG_EVENTS                      \
-    event Trace(uint line);                 \
-    event Print(string msg);                \
-    event Print(string msg, string val);    \
-    event Print(string msg, uint val);    \
-    event Print(string msg, address val);    \
-    event Print(string msg, string msg2, string val);    \
-    event Print(string msg, string msg2, uint val);    \
-    event Print(string msg, string msg2, address val);
-    #  define print(...) emit Print(__VA_ARGS__);
-    #  define log_value(val) emit Print(#val, (val));
-    #  define log_value(val) emit Print(#val, (val));
-    #  define trace() emit Trace(__LINE__);
-    #  define DEBUG 1
-#endif
-
-
-#define OPT_BREAK_EARLY 0x01
-#define M_REPEAT_1(X) X
-#define M_REPEAT_2(X) X X
-#define M_REPEAT_3(X) X X X
-#define M_REPEAT_4(X) X X X X
-#define M_REPEAT_5(X) X M_REPEAT_4(X)
-#define M_REPEAT_6(X) M_REPEAT_3(X) M_REPEAT_3(X)
-
-#define M_EXPAND(...) __VA_ARGS__
-
-#define M_REPEAT__(N, X) M_EXPAND(M_REPEAT_ ## N)(X)
-#define M_REPEAT_(N, X) M_REPEAT__(N, X)
-#define M_REPEAT(N, X) M_REPEAT_(M_EXPAND(N), X)
+#define OPT_BREAK_EARLY 0x01 // Debug option: break and return before performing a swap
 
 contract BofhContract
 {
-DEBUG_EVENTS
 
     address private owner; // rightful owner of the contract
     address private baseToken; // = 0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd; // WBNB on testnet
@@ -202,7 +163,7 @@ DEBUG_EVENTS
 
     function poolQuery(uint idx, address tokenIn)
         internal
-        // view
+        view
         returns (uint, uint, bool, address)
     {
         IGenericPair pair = IGenericPair(getPool(idx));
@@ -223,7 +184,6 @@ DEBUG_EVENTS
         return (reserveIn, reserveOut, false, tokenOut);
     }
 
-#if DEBUG
     struct getAmountOutWithFee_status {
             uint256 amountIn;
             uint256 reserveIn;
@@ -235,121 +195,151 @@ DEBUG_EVENTS
             uint256 amountOut;
             address tokenOut;
     }
-#  define RETURN_VALUE getAmountOutWithFee_status memory
-#else // !DEBUG
-#  define RETURN_VALUE uint256
-#endif
 
-    function getAmountOutWithFee(  uint idx
-                                 , address tokenIn
-                                 , uint amountIn
-#if DEBUG
-                                 , getAmountOutWithFee_status memory status
-#endif
-                                )
-        internal
-        // view
-        returns (uint ,uint, address)
-    {
-        require(amountIn > 0, 'BOFH:INSUFFICIENT_INPUT_AMOUNT');
-        (uint reserveIn, uint reserveOut, bool sellingToken0, address tokenOut) = poolQuery(idx, tokenIn);
-        require(reserveIn > 0 && reserveOut > 0, 'BOFH:INSUFFICIENT_LIQUIDITY');
-        uint amountInWithFee = mul(amountIn, 1000000-getFee(idx));
-        uint numerator = mul(amountInWithFee, reserveOut);
-        uint denominator = mul(reserveIn, 1000000) + amountInWithFee;
-        uint amountOut = numerator / denominator;
-#if DEBUG
-        status.amountIn = amountIn;
-        status.reserveIn = reserveIn;
-        status.reserveOut = reserveOut;
-        status.feePPM = getFee(idx);
-        status.amountInWithFee = amountInWithFee;
-        status.numerator = numerator;
-        status.denominator = denominator;
-        status.amountOut = amountOut;
-        status.tokenOut = tokenOut;
-#endif
-        if (sellingToken0)
-        {
-            return (0, amountOut, tokenOut);
-        }
-        // else:
-        return (amountOut, 0, tokenOut);
+
+#define code_getAmountOutWithFee_status_snapshot_debug  \
+        getAmountOutWithFee_status memory status;       \
+        status.amountIn = amountIn;                     \
+        status.reserveIn = reserveIn;                   \
+        status.reserveOut = reserveOut;                 \
+        status.feePPM = getFee(idx);                    \
+        status.amountInWithFee = amountInWithFee;       \
+        status.numerator = numerator;                   \
+        status.denominator = denominator;               \
+        status.amountOut = amountOut;                   \
+        status.tokenOut = tokenOut;                 
+#define code_getAmountOutWithFee_status_RETURNS_debug    ,getAmountOutWithFee_status memory
+#define code_getAmountOutWithFee_status_val_debug        ,status
+#define code_getAmountOutWithFee_status_snapshot_nodebug
+#define code_getAmountOutWithFee_status_RETURNS_nodebug
+#define code_getAmountOutWithFee_status_val_nodebug
+#define code_getAmountOutWithFee(function_name, returns_token, status_snapshot, status_val) \
+                                                                                                                     \
+    function function_name(  uint idx                                                                                \
+                             , address tokenIn                                                                       \
+                             , uint amountIn                                                                         \
+                            )                                                                                        \
+        internal                                                                                                     \
+        view                                                                                                         \
+        returns (uint ,uint, address returns_token)                                                                  \
+    {                                                                                                                \
+        require(amountIn > 0, 'BOFH:INSUFFICIENT_INPUT_AMOUNT');                                                     \
+        (uint reserveIn, uint reserveOut, bool sellingToken0, address tokenOut) = poolQuery(idx, tokenIn);           \
+        require(reserveIn > 0 && reserveOut > 0, 'BOFH:INSUFFICIENT_LIQUIDITY');                                     \
+        uint amountInWithFee = mul(amountIn, 1000000-getFee(idx));                                                   \
+        uint numerator = mul(amountInWithFee, reserveOut);                                                           \
+        uint denominator = mul(reserveIn, 1000000) + amountInWithFee;                                                \
+        uint amountOut = numerator / denominator;                                                                    \
+        status_snapshot                                                                                              \
+        if (sellingToken0)                                                                                           \
+        {                                                                                                            \
+            return (0, amountOut, tokenOut status_val);                                                              \
+        }                                                                                                            \
+        return (amountOut, 0, tokenOut status_val);                                                                  \
      }
 
 
+    code_getAmountOutWithFee(getAmountOutWithFee
+                             , code_getAmountOutWithFee_status_RETURNS_nodebug
+                             , code_getAmountOutWithFee_status_snapshot_nodebug
+                             , code_getAmountOutWithFee_status_val_nodebug)
+    code_getAmountOutWithFee(getAmountOutWithFee_debug
+                             , code_getAmountOutWithFee_status_RETURNS_debug
+                             , code_getAmountOutWithFee_status_snapshot_debug
+                             , code_getAmountOutWithFee_status_val_debug  )
+
+
+
     // PRIVATE API: THIS is the main call. For the PUBLIC API Look for public spcializations later!
-    function multiswap_internal(
-        uint args_length
-        // INPUT ARGS: uint256[] calldata args, read directly from calldata memory
-        // args[0].bits[1..159]=pool0_address --> extract with getPool(0)
-        // args[1].bits[1..159]=pool1_address --> extract with getPool(1)
-        // args[N].bits[1..159]=poolN_address --> extract with getPool(N)
-        // args[0].bits[160..255]=pool0_feePPM (parts per million) --> getFee(0)
-        // args[1].bits[160..255]=pool1_feePPM (parts per million) --> getFee(1)
-        // args[N].bits[160..255]=poolN_feePPM (parts per million) --> getFee(N)
-        // [...]
-        // args[args.length-1].bits[1..127]   initialAmount       --> extract with getInitialAmount()
-        // args[args.length-1].bits[128..256] expectedFinalAmount --> extract with getExpectedAmount()
-        // minimal args.length is 2 pools + trailer --> 4 elements
-    )
-    internal
-    returns(RETURN_VALUE)
-    {
-        require(args_length > 3, 'BOFH:PATH_TOO_SHORT');
+    // INPUT ARGS: uint256[] calldata args, read directly from calldata memory
+    // args[0].bits[1..159]=pool0_address --> extract with getPool(0)
+    // args[1].bits[1..159]=pool1_address --> extract with getPool(1)
+    // args[N].bits[1..159]=poolN_address --> extract with getPool(N)
+    // args[0].bits[160..255]=pool0_feePPM (parts per million) --> getFee(0)
+    // args[1].bits[160..255]=pool1_feePPM (parts per million) --> getFee(1)
+    // args[N].bits[160..255]=poolN_feePPM (parts per million) --> getFee(N)
+    // [...]
+    // args[args.length-1].bits[1..127]   initialAmount       --> extract with getInitialAmount()
+    // args[args.length-1].bits[128..256] expectedFinalAmount --> extract with getExpectedAmount()
+    // minimal args.length is 2 pools + trailer --> 4 elements
 
-        address transitToken = baseToken;
-        uint256 currentAmount = getInitialAmount();
-        require(currentAmount <= IBEP20(baseToken).balanceOf(address(this)), 'BOFH:GIMMIE_MONEY');
-
-        // transfer to 1st pool
-        safeTransfer(getPool(0), currentAmount);
-
-        for (uint i=0; i < args_length-1; i++)
-        {
-            // get infos from the LP
-            uint amount0Out;
-            uint amount1Out;
-            address tokenOut;
-            {
-#if DEBUG
-                getAmountOutWithFee_status memory status;
-                (amount0Out, amount1Out, tokenOut) = getAmountOutWithFee(i, transitToken, currentAmount, status);
-                if (getOptions(i, OPT_BREAK_EARLY))
-                {
-                    return status;
-                }
-#else // !DEBUG
-                (amount0Out, amount1Out, tokenOut) = getAmountOutWithFee(i, transitToken, currentAmount);
-#endif
-            }
-            address swapBeneficiary = i >= (args_length-2)   // it this the last swap of the path?
-                                      ? address(this)        //   \__ yes: the contract collects the output of the last swap
-                                      : getPool(i+1);        //   \__ no : send funds to the next pool
-            {
-                // limit this specific stack frame:
-                IGenericPair pair = IGenericPair(getPool(i));
-                pair.swap(amount0Out, amount1Out, swapBeneficiary, new bytes(0));
-            }
-            transitToken = tokenOut;
-            currentAmount = amount0Out == 0 ? amount1Out : amount0Out;
+#define multiswap_internal_alloc_staus_debug \
+        getAmountOutWithFee_status memory status;
+#define multiswap_internal_calc_swap_debug                                                                      \
+        (amount0Out, amount1Out, tokenOut, status) = getAmountOutWithFee_debug(i, transitToken, currentAmount); \
+        if (getOptions(i, OPT_BREAK_EARLY))                                                                     \
+        {                                                                                                       \
+            return status;                                                                                      \
         }
+#define multiswap_internal_trailer_return_debug \
+        return status;
+#define multiswap_internal_returns_debug \
+        getAmountOutWithFee_status memory
 
-        require(transitToken == baseToken, 'BOFH:NON_CIRCULAR_PATH');
-        require(currentAmount >= getExpectedAmount(), 'BOFH:MP');
-
-#if DEBUG
-        {
-            getAmountOutWithFee_status memory status;
-            return status;
-        }
-#else // !DEBUG
+#define multiswap_internal_alloc_staus_nodebug
+#define multiswap_internal_calc_swap_nodebug \
+    (amount0Out, amount1Out, tokenOut) = getAmountOutWithFee(i, transitToken, currentAmount);
+#define multiswap_internal_trailer_return_nodebug \
         return currentAmount;
-#endif
+#define multiswap_internal_returns_nodebug \
+        uint256
+
+
+
+
+#define code_multiswap_internal(function_name, returns_token, alloc_status, calc_swap_block, trailer_return_code) \
+    function function_name(                                                                             \
+        uint args_length                                                                                \
+    )                                                                                                   \
+    internal                                                                                            \
+    returns(returns_token)                                                                              \
+    {                                                                                                   \
+        alloc_status                                                                                    \
+        require(args_length > 3, 'BOFH:PATH_TOO_SHORT');                                                \
+                                                                                                        \
+        address transitToken = baseToken;                                                               \
+        uint256 currentAmount = getInitialAmount();                                                     \
+        require(currentAmount <= IBEP20(baseToken).balanceOf(address(this)), 'BOFH:GIMMIE_MONEY');      \
+                                                                                                        \
+        /* transfer to 1st pool */                                                                      \
+        safeTransfer(getPool(0), currentAmount);                                                        \
+                                                                                                        \
+        for (uint i=0; i < args_length-1; i++)                                                          \
+        {                                                                                               \
+            /* get infos from the LP */                                                                 \
+            uint amount0Out;                                                                            \
+            uint amount1Out;                                                                            \
+            address tokenOut;                                                                           \
+            calc_swap_block                                                                             \
+            address swapBeneficiary = i >= (args_length-2)   /* it this the last swap of the path?                           */   \
+                                      ? address(this)        /*   \__ yes: the contract collects the output of the last swap */   \
+                                      : getPool(i+1);        /*   \__ no : send funds to the next pool                       */   \
+            {                                                                                           \
+                /* limit this specific stack frame: */                                                  \
+                IGenericPair pair = IGenericPair(getPool(i));                                           \
+                pair.swap(amount0Out, amount1Out, swapBeneficiary, new bytes(0));                       \
+            }                                                                                           \
+            transitToken = tokenOut;                                                                    \
+            currentAmount = amount0Out == 0 ? amount1Out : amount0Out;                                  \
+        }                                                                                               \
+                                                                                                        \
+        require(transitToken == baseToken, 'BOFH:NON_CIRCULAR_PATH');                                   \
+        require(currentAmount >= getExpectedAmount(), 'BOFH:MP');                                       \
+                                                                                                        \
+        trailer_return_code                                                                             \
     }
 
+    code_multiswap_internal(multiswap_internal
+                            , multiswap_internal_returns_nodebug
+                            , multiswap_internal_alloc_staus_nodebug
+                            , multiswap_internal_calc_swap_nodebug
+                            , multiswap_internal_trailer_return_nodebug)
 
-
+    code_multiswap_internal(multiswap_internal_debug
+                            , multiswap_internal_returns_debug
+                            , multiswap_internal_alloc_staus_debug
+                            , multiswap_internal_calc_swap_debug
+                            , multiswap_internal_trailer_return_debug)
 
     // PUBLIC API for the main entry point.
     // Why and how this works:
@@ -363,27 +353,24 @@ DEBUG_EVENTS
     //  - no offset in the calldata strings describes args.length. One must now look at the string length
     //  - internal functions fetch arguments directly from calldata area by reference. It's ugly and done in getU256()
 
-    // any reasonable web3 implementation should be able to resolve these overloads based on the length of the passed args array:
-    function multiswap(uint256[3]  calldata args) external adminRestricted returns(RETURN_VALUE) { return multiswap_internal(3); } // selector=0x86a99d4f
-    function multiswap(uint256[4]  calldata args) external adminRestricted returns(RETURN_VALUE) { return multiswap_internal(4); } // selector=0xdacdc381
-    function multiswap(uint256[5]  calldata args) external adminRestricted returns(RETURN_VALUE) { return multiswap_internal(5); } // selector=0xea704299
-    function multiswap(uint256[6]  calldata args) external adminRestricted returns(RETURN_VALUE) { return multiswap_internal(6); } // selector=0xa0a3d9d9
-    function multiswap(uint256[7]  calldata args) external adminRestricted returns(RETURN_VALUE) { return multiswap_internal(7); } // selector=0x0ef12bbe
-    function multiswap(uint256[8]  calldata args) external adminRestricted returns(RETURN_VALUE) { return multiswap_internal(8); } // selector=0xb4859ac7
-    function multiswap(uint256[9]  calldata args) external adminRestricted returns(RETURN_VALUE) { return multiswap_internal(9); } // selector=0x12558fb4
-    function multiswap(uint256[10] calldata args) external adminRestricted returns(RETURN_VALUE) { return multiswap_internal(10); } // selector=0x2dbdcebb
+#define multiswap_public_entrypoint(function_name, internal_function, returns_token, tuple_len) \
+    function function_name(uint256[tuple_len] calldata args) external adminRestricted returns(returns_token) { return internal_function(tuple_len); } \
+    function function_name##tuple_len() external adminRestricted returns(returns_token) { return internal_function(tuple_len); }
 
-    // in case the above approach proves problematic due to web3 sucking too much, here are some
-    // aliases with their selectors that are friendler for lower-level calls (makes possible avoiding web3 entirely)
-    function multiswap3() external adminRestricted returns(RETURN_VALUE) { return multiswap_internal(3); } // selector=0xab25564d
-    function multiswap4() external adminRestricted returns(RETURN_VALUE) { return multiswap_internal(4); } // selector=0xdaa5960e
-    function multiswap5() external adminRestricted returns(RETURN_VALUE) { return multiswap_internal(5); } // selector=0x7aae10f1
-    function multiswap6() external adminRestricted returns(RETURN_VALUE) { return multiswap_internal(6); } // selector=0x3ca172e4
-    function multiswap7() external adminRestricted returns(RETURN_VALUE) { return multiswap_internal(7); } // selector=0xb009862e
-    function multiswap8() external adminRestricted returns(RETURN_VALUE) { return multiswap_internal(8); } // selector=0xabdef753
-    function multiswap9() external adminRestricted returns(RETURN_VALUE) { return multiswap_internal(9); } // selector=0xc1a8841b
-    function multiswap10() external adminRestricted returns(RETURN_VALUE) { return multiswap_internal(10); } // selector=0xd461c260
-
+    multiswap_public_entrypoint(multiswap, multiswap_internal, multiswap_internal_returns_nodebug, 3) // selector=0x12558fb4 or 0xab25564d
+    multiswap_public_entrypoint(multiswap, multiswap_internal, multiswap_internal_returns_nodebug, 4) // selector=0xb4859ac7 or 0xdaa5960e
+    multiswap_public_entrypoint(multiswap, multiswap_internal, multiswap_internal_returns_nodebug, 5) // selector=0x0ef12bbe or 0x7aae10f1
+    multiswap_public_entrypoint(multiswap, multiswap_internal, multiswap_internal_returns_nodebug, 6) // selector=0xa0a3d9d9 or 0x3ca172e4
+    multiswap_public_entrypoint(multiswap, multiswap_internal, multiswap_internal_returns_nodebug, 7) // selector=0xea704299 or 0xb009862e
+    multiswap_public_entrypoint(multiswap, multiswap_internal, multiswap_internal_returns_nodebug, 8) // selector=0xdacdc381 or 0xabdef753
+    multiswap_public_entrypoint(multiswap, multiswap_internal, multiswap_internal_returns_nodebug, 9) // selector=0x86a99d4f or 0xc1a8841b
+    multiswap_public_entrypoint(multiswap_debug, multiswap_internal_debug, multiswap_internal_returns_debug, 3)
+    multiswap_public_entrypoint(multiswap_debug, multiswap_internal_debug, multiswap_internal_returns_debug, 4)
+    multiswap_public_entrypoint(multiswap_debug, multiswap_internal_debug, multiswap_internal_returns_debug, 5)
+    multiswap_public_entrypoint(multiswap_debug, multiswap_internal_debug, multiswap_internal_returns_debug, 6)
+    multiswap_public_entrypoint(multiswap_debug, multiswap_internal_debug, multiswap_internal_returns_debug, 7)
+    multiswap_public_entrypoint(multiswap_debug, multiswap_internal_debug, multiswap_internal_returns_debug, 8)
+    multiswap_public_entrypoint(multiswap_debug, multiswap_internal_debug, multiswap_internal_returns_debug, 9)
 
     // PUBLIC API: have the contract move its allowance to itself
     function adoptAllowance()
@@ -425,52 +412,4 @@ DEBUG_EVENTS
         token.transfer(msg.sender, token.balanceOf(address(this)));
         selfdestruct(payable(msg.sender));
     }
-
-
-    //// Test callpoints. Remove in production!
-
-//    function test_getPool3 (uint256[3]  calldata args, uint i) external returns(address) { return getPool(i); }
-//    function test_getPool4 (uint256[4]  calldata args, uint i) external returns(address) { return getPool(i); }
-//    function test_getPool5 (uint256[5]  calldata args, uint i) external returns(address) { return getPool(i); }
-//    function test_getPool6 (uint256[6]  calldata args, uint i) external returns(address) { return getPool(i); }
-//    function test_getPool7 (uint256[7]  calldata args, uint i) external returns(address) { return getPool(i); }
-//    function test_getPool8 (uint256[8]  calldata args, uint i) external returns(address) { return getPool(i); }
-//    function test_getPool9 (uint256[9]  calldata args, uint i) external returns(address) { return getPool(i); }
-//    function test_getPool10(uint256[10] calldata args, uint i) external returns(address) { return getPool(i); }
-
-//    function test_getFee3 (uint256[3]  calldata args, uint i) external returns(uint) { return getFee(i); }
-//    function test_getFee4 (uint256[4]  calldata args, uint i) external returns(uint) { return getFee(i); }
-//    function test_getFee5 (uint256[5]  calldata args, uint i) external returns(uint) { return getFee(i); }
-//    function test_getFee6 (uint256[6]  calldata args, uint i) external returns(uint) { return getFee(i); }
-//    function test_getFee7 (uint256[7]  calldata args, uint i) external returns(uint) { return getFee(i); }
-//    function test_getFee8 (uint256[8]  calldata args, uint i) external returns(uint) { return getFee(i); }
-//    function test_getFee9 (uint256[9]  calldata args, uint i) external returns(uint) { return getFee(i); }
-//    function test_getFee10(uint256[10] calldata args, uint i) external returns(uint) { return getFee(i); }
-
-//    function test_getInitialAmount3 (uint256[3]  calldata args) external returns(uint) { return getInitialAmount(); }
-//    function test_getInitialAmount4 (uint256[4]  calldata args) external returns(uint) { return getInitialAmount(); }
-//    function test_getInitialAmount5 (uint256[5]  calldata args) external returns(uint) { return getInitialAmount(); }
-//    function test_getInitialAmount6 (uint256[6]  calldata args) external returns(uint) { return getInitialAmount(); }
-//    function test_getInitialAmount7 (uint256[7]  calldata args) external returns(uint) { return getInitialAmount(); }
-//    function test_getInitialAmount8 (uint256[8]  calldata args) external returns(uint) { return getInitialAmount(); }
-//    function test_getInitialAmount9 (uint256[9]  calldata args) external returns(uint) { return getInitialAmount(); }
-//    function test_getInitialAmount10(uint256[10] calldata args) external returns(uint) { return getInitialAmount(); }
-
-//    function test_getExpectedAmount3 (uint256[3]  calldata args) external returns(uint) { return getExpectedAmount(); }
-//    function test_getExpectedAmount4 (uint256[4]  calldata args) external returns(uint) { return getExpectedAmount(); }
-//    function test_getExpectedAmount5 (uint256[5]  calldata args) external returns(uint) { return getExpectedAmount(); }
-//    function test_getExpectedAmount6 (uint256[6]  calldata args) external returns(uint) { return getExpectedAmount(); }
-//    function test_getExpectedAmount7 (uint256[7]  calldata args) external returns(uint) { return getExpectedAmount(); }
-//    function test_getExpectedAmount8 (uint256[8]  calldata args) external returns(uint) { return getExpectedAmount(); }
-//    function test_getExpectedAmount9 (uint256[9]  calldata args) external returns(uint) { return getExpectedAmount(); }
-//    function test_getExpectedAmount10(uint256[10] calldata args) external returns(uint) { return getInitialAmount(); }
-
-
-//    function test_Hello()
-//        external
-//        pure
-//        returns (string memory)
-//    {
-//        return "Hello, World!";
-//    }
 }
