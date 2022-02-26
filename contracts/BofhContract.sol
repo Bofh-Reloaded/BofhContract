@@ -123,52 +123,38 @@ contract BofhContract
         return address(uint160(getU256(idx)));
     }
 
-    function poolQuery(uint idx, address tokenIn)
-        internal
-        view
-        returns (uint, uint, bool, address)
-    {
-        IGenericPair pair = IGenericPair(getPool(idx));
-        (uint reserveIn, uint reserveOut,) = pair.getReserves();
-        address tokenOut = pair.token1();
-
-        if (tokenIn != tokenOut)
-        {
-
-            require(tokenIn == pair.token0(), 'BOFH:PAIR_NOT_IN_PATH');
-            return (reserveIn, reserveOut, true, tokenOut);
-        }
-
-
-
-        tokenOut = pair.token0();
-        (reserveOut, reserveIn) = (reserveIn, reserveOut);
-        return (reserveIn, reserveOut, false, tokenOut);
-    }
-
     struct getAmountOutWithFee_status {
+            address token0;
+            address token1;
+            uint256 reserve0;
+            uint256 reserve1;
             uint256 amountIn;
-            uint256 reserveIn;
-            uint256 reserveOut;
+            uint256 amountOut;
             uint256 feePPM;
             uint256 amountInWithFee;
+            address tokenOut;
+            uint256 reserveIn;
+            uint256 reserveOut;
             uint256 numerator;
             uint256 denominator;
-            uint256 amountOut;
-            address tokenOut;
+            uint256 amount0Out;
+            uint256 amount1Out;
     }
-    function getAmountOutWithFee( uint idx , address tokenIn , uint amountIn ) internal view returns (uint ,uint, address ) { require(amountIn > 0, 'BOFH:INSUFFICIENT_INPUT_AMOUNT'); (uint reserveIn, uint reserveOut, bool sellingToken0, address tokenOut) = poolQuery(idx, tokenIn); require(reserveIn > 0 && reserveOut > 0, 'BOFH:INSUFFICIENT_LIQUIDITY'); uint amountInWithFee = mul(amountIn, 1000000-getFee(idx)); uint numerator = mul(amountInWithFee, reserveOut); uint denominator = mul(reserveIn, 1000000) + amountInWithFee; uint amountOut = numerator / denominator; if (sellingToken0) { return (0, amountOut, tokenOut ); } return (amountOut, 0, tokenOut ); }
+    function poolQuery(uint idx, address tokenIn ) internal view returns (uint, uint, bool, address) { IGenericPair pair = IGenericPair(getPool(idx)); (uint reserveIn, uint reserveOut,) = pair.getReserves(); address tokenOut = pair.token1(); if (tokenIn != tokenOut) { require(tokenIn == pair.token0(), 'BOFH:PAIR_NOT_IN_PATH'); return (reserveIn, reserveOut, true, tokenOut); } tokenOut = pair.token0(); (reserveOut, reserveIn) = (reserveIn, reserveOut); return (reserveIn, reserveOut, false, tokenOut); }
+    function poolQuery(uint idx, address tokenIn ,getAmountOutWithFee_status memory status) internal view returns (uint, uint, bool, address) { IGenericPair pair = IGenericPair(getPool(idx)); (uint reserveIn, uint reserveOut,) = pair.getReserves(); status.token0 = pair.token0(); status.token1 = pair.token1(); status.reserve0 = reserveIn; status.reserve1 = reserveOut; address tokenOut = pair.token1(); if (tokenIn != tokenOut) { require(tokenIn == pair.token0(), 'BOFH:PAIR_NOT_IN_PATH'); return (reserveIn, reserveOut, true, tokenOut); } tokenOut = pair.token0(); (reserveOut, reserveIn) = (reserveIn, reserveOut); return (reserveIn, reserveOut, false, tokenOut); }
+    function getAmountOutWithFee( uint idx , address tokenIn , uint amountIn ) internal view returns (uint ,uint, address) { require(amountIn > 0, 'BOFH:INSUFFICIENT_INPUT_AMOUNT'); (uint reserveIn, uint reserveOut, bool sellingToken0, address tokenOut) = poolQuery(idx, tokenIn ); require(reserveIn > 0 && reserveOut > 0, 'BOFH:INSUFFICIENT_LIQUIDITY'); uint amountInWithFee = mul(amountIn, 1000000-getFee(idx)); uint numerator = mul(amountInWithFee, reserveOut); uint denominator = mul(reserveIn, 1000000) + amountInWithFee; uint amountOut = numerator / denominator; if (sellingToken0) { return (0, amountOut, tokenOut); } return (amountOut, 0, tokenOut); }
 
 
 
-    function getAmountOutWithFee_debug( uint idx , address tokenIn , uint amountIn ) internal view returns (uint ,uint, address ,getAmountOutWithFee_status memory) { require(amountIn > 0, 'BOFH:INSUFFICIENT_INPUT_AMOUNT'); (uint reserveIn, uint reserveOut, bool sellingToken0, address tokenOut) = poolQuery(idx, tokenIn); require(reserveIn > 0 && reserveOut > 0, 'BOFH:INSUFFICIENT_LIQUIDITY'); uint amountInWithFee = mul(amountIn, 1000000-getFee(idx)); uint numerator = mul(amountInWithFee, reserveOut); uint denominator = mul(reserveIn, 1000000) + amountInWithFee; uint amountOut = numerator / denominator; getAmountOutWithFee_status memory status; status.amountIn = amountIn; status.reserveIn = reserveIn; status.reserveOut = reserveOut; status.feePPM = getFee(idx); status.amountInWithFee = amountInWithFee; status.numerator = numerator; status.denominator = denominator; status.amountOut = amountOut; status.tokenOut = tokenOut; if (sellingToken0) { return (0, amountOut, tokenOut ,status); } return (amountOut, 0, tokenOut ,status); }
-    function multiswap_internal( uint args_length ) internal returns(uint256) { require(args_length > 3, 'BOFH:PATH_TOO_SHORT'); address transitToken = baseToken; uint256 currentAmount = getInitialAmount(); require(currentAmount <= IBEP20(baseToken).balanceOf(address(this)), 'BOFH:GIMMIE_MONEY'); safeTransfer(getPool(0), currentAmount); for (uint i=0; i < args_length-1; i++) { uint amount0Out; uint amount1Out; address tokenOut; (amount0Out, amount1Out, tokenOut) = getAmountOutWithFee(i, transitToken, currentAmount); address swapBeneficiary = i >= (args_length-2) ? address(this) : getPool(i+1); { IGenericPair pair = IGenericPair(getPool(i)); pair.swap(amount0Out, amount1Out, swapBeneficiary, new bytes(0)); } transitToken = tokenOut; currentAmount = amount0Out == 0 ? amount1Out : amount0Out; } require(transitToken == baseToken, 'BOFH:NON_CIRCULAR_PATH'); require(currentAmount >= getExpectedAmount(), 'BOFH:MP'); return currentAmount; }
+    function getAmountOutWithFee( uint idx , address tokenIn , uint amountIn ,getAmountOutWithFee_status memory status ) internal view returns (uint ,uint, address) { require(amountIn > 0, 'BOFH:INSUFFICIENT_INPUT_AMOUNT'); (uint reserveIn, uint reserveOut, bool sellingToken0, address tokenOut) = poolQuery(idx, tokenIn , status); require(reserveIn > 0 && reserveOut > 0, 'BOFH:INSUFFICIENT_LIQUIDITY'); uint amountInWithFee = mul(amountIn, 1000000-getFee(idx)); uint numerator = mul(amountInWithFee, reserveOut); uint denominator = mul(reserveIn, 1000000) + amountInWithFee; uint amountOut = numerator / denominator; status.amountIn = amountIn; status.reserveIn = reserveIn; status.reserveOut = reserveOut; status.feePPM = getFee(idx); status.amountInWithFee = amountInWithFee; status.numerator = numerator; status.denominator = denominator; status.amountOut = amountOut; status.tokenOut = tokenOut; if (sellingToken0) { return (0, amountOut, tokenOut); } return (amountOut, 0, tokenOut); }
+    function multiswap_internal( uint args_length ) internal returns(uint256) { require(args_length > 3, 'BOFH:PATH_TOO_SHORT'); address transitToken = baseToken; uint256 currentAmount = getInitialAmount(); require(currentAmount <= IBEP20(baseToken).balanceOf(address(this)), 'BOFH:GIMMIE_MONEY'); safeTransfer(getPool(0), currentAmount); for (uint i=0; i < args_length-1; i++) { uint amount0Out; uint amount1Out; address tokenOut; (amount0Out, amount1Out, tokenOut) = getAmountOutWithFee(i, transitToken, currentAmount ); address swapBeneficiary = i >= (args_length-2) ? address(this) : getPool(i+1); { IGenericPair pair = IGenericPair(getPool(i)); pair.swap(amount0Out, amount1Out, swapBeneficiary, new bytes(0)); } transitToken = tokenOut; currentAmount = amount0Out == 0 ? amount1Out : amount0Out; } require(transitToken == baseToken, 'BOFH:NON_CIRCULAR_PATH'); require(currentAmount >= getExpectedAmount(), 'BOFH:MP'); return currentAmount; }
 
 
 
 
 
-    function multiswap_internal_debug( uint args_length ) internal returns(getAmountOutWithFee_status memory) { getAmountOutWithFee_status memory status; require(args_length > 3, 'BOFH:PATH_TOO_SHORT'); address transitToken = baseToken; uint256 currentAmount = getInitialAmount(); require(currentAmount <= IBEP20(baseToken).balanceOf(address(this)), 'BOFH:GIMMIE_MONEY'); safeTransfer(getPool(0), currentAmount); for (uint i=0; i < args_length-1; i++) { uint amount0Out; uint amount1Out; address tokenOut; (amount0Out, amount1Out, tokenOut, status) = getAmountOutWithFee_debug(i, transitToken, currentAmount); if (getOptions(i, 0x01)) { return status; } address swapBeneficiary = i >= (args_length-2) ? address(this) : getPool(i+1); { IGenericPair pair = IGenericPair(getPool(i)); pair.swap(amount0Out, amount1Out, swapBeneficiary, new bytes(0)); } transitToken = tokenOut; currentAmount = amount0Out == 0 ? amount1Out : amount0Out; } require(transitToken == baseToken, 'BOFH:NON_CIRCULAR_PATH'); require(currentAmount >= getExpectedAmount(), 'BOFH:MP'); return status; }
+
+    function multiswap_internal_debug( uint args_length ) internal returns(getAmountOutWithFee_status memory) { getAmountOutWithFee_status memory status; require(args_length > 3, 'BOFH:PATH_TOO_SHORT'); address transitToken = baseToken; uint256 currentAmount = getInitialAmount(); require(currentAmount <= IBEP20(baseToken).balanceOf(address(this)), 'BOFH:GIMMIE_MONEY'); safeTransfer(getPool(0), currentAmount); for (uint i=0; i < args_length-1; i++) { uint amount0Out; uint amount1Out; address tokenOut; (amount0Out, amount1Out, tokenOut) = getAmountOutWithFee(i, transitToken, currentAmount , status); status.amount0Out = amount0Out; status.amount1Out = amount1Out; if (getOptions(i, 0x01)) { return status; } address swapBeneficiary = i >= (args_length-2) ? address(this) : getPool(i+1); { IGenericPair pair = IGenericPair(getPool(i)); pair.swap(amount0Out, amount1Out, swapBeneficiary, new bytes(0)); } transitToken = tokenOut; currentAmount = amount0Out == 0 ? amount1Out : amount0Out; } require(transitToken == baseToken, 'BOFH:NON_CIRCULAR_PATH'); require(currentAmount >= getExpectedAmount(), 'BOFH:MP'); return status; }
     function multiswap(uint256[3] calldata args) external adminRestricted returns(uint256) { return multiswap_internal(3); } function multiswap3() external adminRestricted returns(uint256) { return multiswap_internal(3); }
     function multiswap(uint256[4] calldata args) external adminRestricted returns(uint256) { return multiswap_internal(4); } function multiswap4() external adminRestricted returns(uint256) { return multiswap_internal(4); }
     function multiswap(uint256[5] calldata args) external adminRestricted returns(uint256) { return multiswap_internal(5); } function multiswap5() external adminRestricted returns(uint256) { return multiswap_internal(5); }
