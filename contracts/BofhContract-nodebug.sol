@@ -254,24 +254,6 @@ contract BofhContract {
         return address(uint160(getU256(idx)));
     }
 
-    struct StatusSnapshot {
-        address token0;
-        address token1;
-        uint256 reserve0;
-        uint256 reserve1;
-        uint256 amountIn;
-        uint256 amountOut;
-        uint256 feePPM;
-        uint256 amountInWithFee;
-        address tokenOut;
-        uint256 reserveIn;
-        uint256 reserveOut;
-        uint256 numerator;
-        uint256 denominator;
-        uint256 amount0Out;
-        uint256 amount1Out;
-    }
-
     /* fetch pool reserves, return a tuple telling: */
     /* reserveIn, reserveOut, swapDirection, outputToken */
     function poolQuery(uint256 idx, address tokenIn)
@@ -286,43 +268,6 @@ contract BofhContract {
     {
         IGenericPair pair = IGenericPair(getPool(idx));
         (uint256 reserveIn, uint256 reserveOut, ) = pair.getReserves();
-        address tokenOut = pair.token1();
-        /* 50/50 change of this being the case: */
-        if (tokenIn != tokenOut) {
-            /* we got lucky */
-            require(tokenIn == pair.token0(), "BOFH:PAIR_NOT_IN_PATH");
-            /* for paranoia */
-            return (reserveIn, reserveOut, true, tokenOut);
-        }
-        /* else: */
-        /* we are going in with pool.token1(). Need to reverse assumptions: */
-        tokenOut = pair.token0();
-        (reserveOut, reserveIn) = (reserveIn, reserveOut);
-        return (reserveIn, reserveOut, false, tokenOut);
-    }
-
-    /* fetch pool reserves, return a tuple telling: */
-    /* reserveIn, reserveOut, swapDirection, outputToken */
-    function poolQuery(
-        uint256 idx,
-        address tokenIn,
-        StatusSnapshot memory status
-    )
-        internal
-        view
-        returns (
-            uint256,
-            uint256,
-            bool,
-            address
-        )
-    {
-        IGenericPair pair = IGenericPair(getPool(idx));
-        (uint256 reserveIn, uint256 reserveOut, ) = pair.getReserves();
-        status.token0 = pair.token0();
-        status.token1 = pair.token1();
-        status.reserve0 = reserveIn;
-        status.reserve1 = reserveOut;
         address tokenOut = pair.token1();
         /* 50/50 change of this being the case: */
         if (tokenIn != tokenOut) {
@@ -364,48 +309,6 @@ contract BofhContract {
         uint256 numerator = mul(amountInWithFee, reserveOut);
         uint256 denominator = mul(reserveIn, 1000000) + amountInWithFee;
         uint256 amountOut = numerator / denominator;
-        if (sellingToken0) {
-            return (0, amountOut, tokenOut);
-        }
-        return (amountOut, 0, tokenOut);
-    }
-
-    /* observe next pool's reserves, compute fees, return amount0Out, amount1Out and nextToken */
-    function getAmountOutWithFee(
-        uint256 idx,
-        address tokenIn,
-        uint256 amountIn,
-        StatusSnapshot memory status
-    )
-        internal
-        view
-        returns (
-            uint256,
-            uint256,
-            address
-        )
-    {
-        require(amountIn > 0, "BOFH:INSUFFICIENT_INPUT_AMOUNT");
-        (
-            uint256 reserveIn,
-            uint256 reserveOut,
-            bool sellingToken0,
-            address tokenOut
-        ) = poolQuery(idx, tokenIn, status);
-        require(reserveIn > 0 && reserveOut > 0, "BOFH:INSUFFICIENT_LIQUIDITY");
-        uint256 amountInWithFee = mul(amountIn, 1000000 - getFee(idx));
-        uint256 numerator = mul(amountInWithFee, reserveOut);
-        uint256 denominator = mul(reserveIn, 1000000) + amountInWithFee;
-        uint256 amountOut = numerator / denominator;
-        status.amountIn = amountIn;
-        status.reserveIn = reserveIn;
-        status.reserveOut = reserveOut;
-        status.feePPM = getFee(idx);
-        status.amountInWithFee = amountInWithFee;
-        status.numerator = numerator;
-        status.denominator = denominator;
-        status.amountOut = amountOut;
-        status.tokenOut = tokenOut;
         if (sellingToken0) {
             return (0, amountOut, tokenOut);
         }
@@ -462,70 +365,6 @@ contract BofhContract {
         require(currentAmount >= getExpectedAmount(), "BOFH:MP");
         /* return some status (this can be inspected with eth_call()) */
         return currentAmount;
-    }
-
-    /* Main entry-point. Called from external overloads (see later) */
-    function multiswap_internal_debug(uint256 args_length)
-        internal
-        returns (StatusSnapshot memory)
-    {
-        StatusSnapshot memory status;
-        require(args_length > 3, "BOFH:PATH_TOO_SHORT");
-        /* always start with a specified amount of baseToken */
-        address transitToken = baseToken;
-        uint256 currentAmount = getInitialAmount();
-        /* check if the contract actually owns the specified amount of baseToken */
-        require(
-            currentAmount <= IBEP20(baseToken).balanceOf(address(this)),
-            "BOFH:GIMMIE_MONEY"
-        );
-        /* transfer to 1st pool */
-        safeTransfer(getPool(0), currentAmount);
-        for (uint256 i = 0; i < args_length - 1; i++) {
-            /* get infos from the LP */
-            uint256 amount0Out;
-            uint256 amount1Out;
-            address tokenOut;
-            (amount0Out, amount1Out, tokenOut) = getAmountOutWithFee(
-                i,
-                transitToken,
-                currentAmount,
-                status
-            );
-            status.amount0Out = amount0Out;
-            status.amount1Out = amount1Out;
-            if (
-                getOptions(
-                    i,
-                    0x01 /* Debug option: break and return before performing a swap*/
-                )
-            ) {
-                return status;
-            }
-            address swapBeneficiary = i >= (args_length - 2) /* it this the last swap of the path? */
-                ? address(this) /*   \__ yes: the contract collects the output of the last swap */
-                : getPool(i + 1);
-            /*   \__ no : send funds to the next pool */
-            {
-                /* limit this specific stack frame: */
-                IGenericPair pair = IGenericPair(getPool(i));
-                /* Perform the swap!! */
-                pair.swap(
-                    amount0Out,
-                    amount1Out,
-                    swapBeneficiary,
-                    new bytes(0)
-                );
-            }
-            /* we are now handling a certain amount the swap's output token */
-            transitToken = tokenOut;
-            currentAmount = amount0Out == 0 ? amount1Out : amount0Out;
-        }
-        /* final sanity checks: */
-        require(transitToken == baseToken, "BOFH:NON_CIRCULAR_PATH");
-        require(currentAmount >= getExpectedAmount(), "BOFH:MP");
-        /* return some status (this can be inspected with eth_call()) */
-        return status;
     }
 
     // PUBLIC API for the main entry point.
@@ -623,118 +462,6 @@ contract BofhContract {
     function multiswap9() external adminRestricted returns (uint256) {
         return multiswap_internal(9);
     } // selector=0x86a99d4f or 0xc1a8841b
-
-    function multiswap_debug(uint256[3] calldata args)
-        external
-        adminRestricted
-        returns (StatusSnapshot memory)
-    {
-        return multiswap_internal_debug(3);
-    }
-
-    function multiswap_debug3()
-        external
-        adminRestricted
-        returns (StatusSnapshot memory)
-    {
-        return multiswap_internal_debug(3);
-    }
-
-    function multiswap_debug(uint256[4] calldata args)
-        external
-        adminRestricted
-        returns (StatusSnapshot memory)
-    {
-        return multiswap_internal_debug(4);
-    }
-
-    function multiswap_debug4()
-        external
-        adminRestricted
-        returns (StatusSnapshot memory)
-    {
-        return multiswap_internal_debug(4);
-    }
-
-    function multiswap_debug(uint256[5] calldata args)
-        external
-        adminRestricted
-        returns (StatusSnapshot memory)
-    {
-        return multiswap_internal_debug(5);
-    }
-
-    function multiswap_debug5()
-        external
-        adminRestricted
-        returns (StatusSnapshot memory)
-    {
-        return multiswap_internal_debug(5);
-    }
-
-    function multiswap_debug(uint256[6] calldata args)
-        external
-        adminRestricted
-        returns (StatusSnapshot memory)
-    {
-        return multiswap_internal_debug(6);
-    }
-
-    function multiswap_debug6()
-        external
-        adminRestricted
-        returns (StatusSnapshot memory)
-    {
-        return multiswap_internal_debug(6);
-    }
-
-    function multiswap_debug(uint256[7] calldata args)
-        external
-        adminRestricted
-        returns (StatusSnapshot memory)
-    {
-        return multiswap_internal_debug(7);
-    }
-
-    function multiswap_debug7()
-        external
-        adminRestricted
-        returns (StatusSnapshot memory)
-    {
-        return multiswap_internal_debug(7);
-    }
-
-    function multiswap_debug(uint256[8] calldata args)
-        external
-        adminRestricted
-        returns (StatusSnapshot memory)
-    {
-        return multiswap_internal_debug(8);
-    }
-
-    function multiswap_debug8()
-        external
-        adminRestricted
-        returns (StatusSnapshot memory)
-    {
-        return multiswap_internal_debug(8);
-    }
-
-    function multiswap_debug(uint256[9] calldata args)
-        external
-        adminRestricted
-        returns (StatusSnapshot memory)
-    {
-        return multiswap_internal_debug(9);
-    }
-
-    function multiswap_debug9()
-        external
-        adminRestricted
-        returns (StatusSnapshot memory)
-    {
-        return multiswap_internal_debug(9);
-    }
 
     // PUBLIC API: have the contract move its allowance to itself
     function adoptAllowance() external adminRestricted {

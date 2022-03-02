@@ -90,6 +90,12 @@
 #define OPT_BREAK_EARLY 0x01 // Debug option: break and return before performing a swap
 
 
+#if !defined(NO_DEBUG_CODE)
+#  define NO_DEBUG_CODE 0
+#endif
+
+
+
 // IMPORTANT: using Solidity 0.8.9+. Some calldata optimizations are buggy in pre-0.8.9 compilers
 pragma solidity >= 0.8.10;
 
@@ -227,6 +233,7 @@ contract BofhContract
         return address(uint160(getU256(idx)));
     }
 
+#if !NO_DEBUG_CODE
     struct StatusSnapshot {
             address token0;
             address token1;
@@ -244,6 +251,7 @@ contract BofhContract
             uint256 amount0Out;
             uint256 amount1Out;
     }
+#endif // !NO_DEBUG_CODE
 
 #define NOTHING
 #define inject_status_param           ,StatusSnapshot memory status
@@ -283,7 +291,9 @@ contract BofhContract
 
 
     code_poolQuery(poolQuery, NOTHING, NOTHING)
+#if !NO_DEBUG_CODE
     code_poolQuery(poolQuery, inject_status_param, code_poolQuery_save_status)
+#endif // !NO_DEBUG_CODE
 
 
 #define code_getAmountOutWithFee_save_status        \
@@ -325,10 +335,12 @@ contract BofhContract
                              , NOTHING
                              , NOTHING
                              , NOTHING)
+#if !NO_DEBUG_CODE
     code_getAmountOutWithFee(getAmountOutWithFee
                              , inject_status_param
                              , forward_status_param
                              , code_getAmountOutWithFee_save_status)
+#endif // !NO_DEBUG_CODE
 
 
 #define multiswap_internal_alloc_staus_debug \
@@ -408,12 +420,14 @@ contract BofhContract
                             , NOTHING
                             , multiswap_internal_trailer_return_nodebug)
 
+#if !NO_DEBUG_CODE
     code_multiswap_internal(multiswap_internal_debug
                             , multiswap_internal_returns_debug
                             , multiswap_internal_alloc_staus_debug
                             , forward_status_param
                             , multiswap_internal_save_status
                             , multiswap_internal_trailer_return_debug)
+#endif // !NO_DEBUG_CODE
 
     // PUBLIC API for the main entry point.
     // Why and how this works:
@@ -438,6 +452,7 @@ contract BofhContract
     multiswap_public_entrypoint(multiswap, multiswap_internal, multiswap_internal_returns_nodebug, 7) // selector=0xea704299 or 0xb009862e
     multiswap_public_entrypoint(multiswap, multiswap_internal, multiswap_internal_returns_nodebug, 8) // selector=0xdacdc381 or 0xabdef753
     multiswap_public_entrypoint(multiswap, multiswap_internal, multiswap_internal_returns_nodebug, 9) // selector=0x86a99d4f or 0xc1a8841b
+#if !NO_DEBUG_CODE
     multiswap_public_entrypoint(multiswap_debug, multiswap_internal_debug, multiswap_internal_returns_debug, 3)
     multiswap_public_entrypoint(multiswap_debug, multiswap_internal_debug, multiswap_internal_returns_debug, 4)
     multiswap_public_entrypoint(multiswap_debug, multiswap_internal_debug, multiswap_internal_returns_debug, 5)
@@ -445,6 +460,7 @@ contract BofhContract
     multiswap_public_entrypoint(multiswap_debug, multiswap_internal_debug, multiswap_internal_returns_debug, 7)
     multiswap_public_entrypoint(multiswap_debug, multiswap_internal_debug, multiswap_internal_returns_debug, 8)
     multiswap_public_entrypoint(multiswap_debug, multiswap_internal_debug, multiswap_internal_returns_debug, 9)
+#endif // !NO_DEBUG_CODE
 
     // PUBLIC API: have the contract move its allowance to itself
     function adoptAllowance()
