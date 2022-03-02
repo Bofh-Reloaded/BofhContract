@@ -161,7 +161,7 @@ contract BofhContract
         return address(uint160(getU256(idx)));
     }
 
-    struct getAmountOutWithFee_status {
+    struct StatusSnapshot {
             address token0;
             address token1;
             uint256 reserve0;
@@ -180,7 +180,7 @@ contract BofhContract
     }
 
 #define NOTHING
-#define inject_status_param           ,getAmountOutWithFee_status memory status
+#define inject_status_param           ,StatusSnapshot memory status
 #define forward_status_param          , status
 #define code_poolQuery_save_status      \
         status.token0 = pair.token0();  \
@@ -277,7 +277,7 @@ contract BofhContract
     // minimal args.length is 2 pools + trailer --> 4 elements
 
 #define multiswap_internal_alloc_staus_debug \
-        getAmountOutWithFee_status memory status;
+        StatusSnapshot memory status;
 #define multiswap_internal_save_status                                                                          \
         status.amount0Out = amount0Out;                                                                         \
         status.amount1Out = amount1Out;                                                                         \
@@ -288,7 +288,7 @@ contract BofhContract
 #define multiswap_internal_trailer_return_debug \
         return status;
 #define multiswap_internal_returns_debug \
-        getAmountOutWithFee_status memory
+        StatusSnapshot memory
 
 #define multiswap_internal_trailer_return_nodebug \
         return currentAmount;
