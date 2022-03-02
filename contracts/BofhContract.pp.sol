@@ -3,7 +3,38 @@
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     //
     //                                                           THE BOFH Contract
-    //                                                                v0.0.1
+    //                                                                v0.0.2
+    //
+    // Functional preface:
+    // This contract is meant to operate a connected chain of swaps, starting and ending in the contract base token.
+    // This contract has a single admin user, only sender able to invoke its functions. (See "owner" storage var).
+    // This contract stores an operational amount of baseToken on itself. (See "baseToken" storage var).
+    // The final yield of the swap chain is credited back to the contract's address.
+    //
+    // Public API:
+    //
+    // - getAdmin()
+    //      Returns contract instance's current admin address
+    // - getBaseToken()
+    //      Returns contract instance's current base token
+    // - changeAdmin(address newOwner)
+    //      Transfer admin rights to another address
+    // - adoptAllowance()
+    //      Transfer credited amount to the contract instance's address (Must be preceeded by baseToken.allow()).@author
+    //      The credited amount is compounded on top of any previously established credit of baseToken.
+    // - withdrawFunds()
+    //      Withdraw 100% of the current contract baseToken credit, and transfer it to the admin address.
+    // - kill()
+    //      Self-destruct contract instance. (Also performs withdrawFunds()). Rebates storage gas to the admin address.
+    // - multiswap(uint256[3])
+    // - multiswap(uint256[4])
+    // - multiswap(uint256[...])
+    // - multiswap(uint256[N])
+    // - multiswap3()
+    // - multiswap4()
+    // - multiswapN()
+    //      This is the main entry point. (They all do the same thing)
+    //      See later.
     //
     // About the entry point multiswap():
     //
@@ -12,17 +43,37 @@
     // - receives initialAmount of baseToken (Wei units) to start the swap chain
     // - receives expectedAmount of baseToken (Wei units) as profit target. Execution reverts if target is missed
     // - the initialAmount is transferred to the first pool of the path
-    // - a swap is performed with the next pool in line as its beneficiary address
-    // - at the end of the swap sequence, the beneficieary is the contract itself
+    // - the pool is observed (with getReserves()) and the amountOut is computed, according to pool's K and fees
+    // - a swap is performed with the next pool in line as its beneficiary address and the cycle repeats
+    // - at the end of the swap sequence, the beneficiary of the final swap is the contract itself
     // - if the described path is broken, too short, or is not circular respective of baseToken, execution reverts
+    // - if the final yield of the swap does not match or exceed expectedAmount, execution reverts
     // - the code exploits calldata and bit shifting optimizations to save on gas. This is at the expense of clarity of argument encoding
     // - the actual encoding of the parameters to be passed is laid out later. See multiswap_internal()
     //
-    // Presequisites:
+    // Description of payload format:
+    // Formally (at web3 level), all multicall() entrypoints accept a sized uint256[] array as a parameter.
+    // The payload format is:
+    // args[0].bits[1..159]=pool0_address --> extract with getPool(0)
+    // args[1].bits[1..159]=pool1_address --> extract with getPool(1)
+    // args[N].bits[1..159]=poolN_address --> extract with getPool(N)
+    // args[0].bits[160..255]=pool0_feePPM (parts per million) --> getFee(0)
+    // args[1].bits[160..255]=pool1_feePPM (parts per million) --> getFee(1)
+    // args[N].bits[160..255]=poolN_feePPM (parts per million) --> getFee(N)
+    // [...]
+    // args[args.length-1].bits[1..127]   initialAmount       --> extract with getInitialAmount()
+    // args[args.length-1].bits[128..256] expectedFinalAmount --> extract with getExpectedAmount()
+    // In other words:
+    // - Each element of the array besides the last one, describes a swap pool and its fees
+    // - The last element describes initialAmount and expectedAmount quantities
+    // - The minimal functional length of an invocation is an array of length 3 (2 swaps).
+    //
+    // Usage remarks:
     // - THE CONTRACT IS PRIVATE: only the deployer of the contract has the right to invoke its public functions
+    // - a baseToken address must be specified for the contract instance at deploy time
     // - a sufficient amount of baseToken must be approved to the contract ONCE, prior of calling multiswap()
     // - in order to actually move the balance to the contract, call ONCE adoptAllowance()
-    // - for each subsequent funding injection, it is necessaty to repeat this same sequence (approve first then adoptAllowance)
+    // - for each subsequent funding injection, it is necessary to repeat this same sequence (approve first then adoptAllowance)
     //
     // How to retrieve the balance:
     // - call withdrawFunds(). The baseToken funds are sent back to the caller. All of it. The contract has then zero balance of the token.
@@ -30,12 +81,16 @@
     // Versions:
     //
     // v0.0.0: unreleased. Initial deploy.
-    // v0.0.1: pushes otimization farther. Squeezes 96 bytes of calldata out. Uses some inline asm for required magisms. (!!Breaks ABI!!)
+    // v0.0.1: pushes optimization further. Squeezes 96 bytes of calldata out. Uses some inline asm for required magisms. (!!Breaks ABI!!)
+    // v0.0.2: rewrite using C preprocessor for loop-unrolling and injection of debug code
     //
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-// IMPORTANT: using Solidity 0.8.9+ calldata optimizations here
+#define OPT_BREAK_EARLY 0x01 // Debug option: break and return before performing a swap
+
+
+// IMPORTANT: using Solidity 0.8.9+. Some calldata optimizations are buggy in pre-0.8.9 compilers
 pragma solidity >= 0.8.10;
 
 
@@ -65,7 +120,6 @@ interface IGenericPair {
     function sync() external;
 }
 
-#define OPT_BREAK_EARLY 0x01 // Debug option: break and return before performing a swap
 
 contract BofhContract
 {
@@ -75,7 +129,7 @@ contract BofhContract
 
     constructor(address ctrBaseToken)
     {
-        // owner is set at deploy time, set to the transaction signer
+        // owner and baseToken are is set at deploy time
         owner = msg.sender;
         baseToken = ctrBaseToken;
     }
@@ -90,6 +144,7 @@ contract BofhContract
         return baseToken;
     }
 
+    // Modifier applied to all state-changing APIs later:
     modifier adminRestricted()
     {
         require(msg.sender == owner, 'BOFH:SUX2BEU');
@@ -99,6 +154,7 @@ contract BofhContract
         _;
     }
 
+    // Horrible Uniswap hack to implement an uniform transfer call even for non-compliant tokens:
     function safeTransfer(address to, uint256 value) internal
     {
         // bytes4(keccak256(bytes('transfer(address,uint256)')));
@@ -109,7 +165,7 @@ contract BofhContract
         );
     }
 
-    // returns calldata[idx]: uint256
+    // Access calldata memory area, returns args[idx]. NO BOUNDARY CHECKS IN PLACE!!
     function getU256(uint idx) internal pure returns (uint256 value)
     {
         assembly
@@ -119,6 +175,8 @@ contract BofhContract
             value := mload(ptr)
         }
     }
+
+    // Access calldata memory area, returns args[args.length-1]
     function getU256_last() internal pure returns (uint256 value)
     {
         assembly
@@ -133,29 +191,37 @@ contract BofhContract
         return a * b;
     }
 
-    // note: the bulk of the code passes around the calldata "args" array, which is the contract invocation argument.
-    //       Since Solidity 0.8.9 internal functions can share calldata things and avoid consuming gas to allocate additional stack or "memory"
-
+    // get fee amount (in parts per million), for the N-th pool of the swap chain
     function getFee(uint idx) internal pure returns (uint)
     {
         return (getU256(idx) >> 160) & 0xfffff;
     }
 
+    // get the options bitmask for the N-th pool of the swap chain (currently only used for debug purposes)
+    // Implemented list of options:
+    //
+    //  OPT_BREAK_EARLY=0x01 -- Break swap chain early, and return immediately.
+    //                          This can be used with eth_call() in order to obtain a StatusSnapshot() tuple
+    //                          describing the contract's internal status at the N-th step of the swap.
+    //
     function getOptions(uint idx, uint mask) internal pure returns (bool)
     {
         return ((getU256(idx) >> 180) & mask) == mask;
     }
 
+    // Return initialAmount (weis) of baseToken, which is the start size for the first swap of the chain
     function getInitialAmount() internal pure returns (uint256)
     {
         return uint128(getU256_last());
     }
 
+    // Return expectedAmount (weis) of baseToken, which is the minimum expected output amount of the swap chain
     function getExpectedAmount() internal pure returns (uint256)
     {
         return uint128(getU256_last() >> 128);
     }
 
+    // get N-th pool address (idx between 0 to args.length-1)
     function getPool(uint idx) internal pure returns (address)
     {
         return address(uint160(getU256(idx)));
@@ -189,6 +255,8 @@ contract BofhContract
         status.reserve1 = reserveOut;
 
 #define code_poolQuery(function_name, status_param, status_snapshot)                        \
+    /* fetch pool reserves, return a tuple telling: */                                      \
+    /* reserveIn, reserveOut, swapDirection, outputToken */                                 \
     function function_name(uint idx, address tokenIn status_param)                          \
         internal                                                                            \
         view                                                                                \
@@ -230,6 +298,7 @@ contract BofhContract
         status.tokenOut = tokenOut;                 
 
 #define code_getAmountOutWithFee(function_name, inject_status_param, forward_status_param, status_snapshot) \
+    /* observe next pool's reserves, compute fees, return amount0Out, amount1Out and nextToken */           \
     function function_name(  uint idx                                                                       \
                              , address tokenIn                                                              \
                              , uint amountIn                                                                \
@@ -262,20 +331,6 @@ contract BofhContract
                              , code_getAmountOutWithFee_save_status)
 
 
-
-    // PRIVATE API: THIS is the main call. For the PUBLIC API Look for public spcializations later!
-    // INPUT ARGS: uint256[] calldata args, read directly from calldata memory
-    // args[0].bits[1..159]=pool0_address --> extract with getPool(0)
-    // args[1].bits[1..159]=pool1_address --> extract with getPool(1)
-    // args[N].bits[1..159]=poolN_address --> extract with getPool(N)
-    // args[0].bits[160..255]=pool0_feePPM (parts per million) --> getFee(0)
-    // args[1].bits[160..255]=pool1_feePPM (parts per million) --> getFee(1)
-    // args[N].bits[160..255]=poolN_feePPM (parts per million) --> getFee(N)
-    // [...]
-    // args[args.length-1].bits[1..127]   initialAmount       --> extract with getInitialAmount()
-    // args[args.length-1].bits[128..256] expectedFinalAmount --> extract with getExpectedAmount()
-    // minimal args.length is 2 pools + trailer --> 4 elements
-
 #define multiswap_internal_alloc_staus_debug \
         StatusSnapshot memory status;
 #define multiswap_internal_save_status                                                                          \
@@ -296,9 +351,8 @@ contract BofhContract
         uint256
 
 
-
-
 #define code_multiswap_internal(function_name, return_type, alloc_status, forward_status_param, status_snapshot, trailer_return_code) \
+    /* Main entry-point. Called from external overloads (see later) */                                        \
     function function_name(                                                                                   \
         uint args_length                                                                                      \
     )                                                                                                         \
@@ -308,8 +362,10 @@ contract BofhContract
         alloc_status                                                                                          \
         require(args_length > 3, 'BOFH:PATH_TOO_SHORT');                                                      \
                                                                                                               \
+        /* always start with a specified amount of baseToken */                                               \
         address transitToken = baseToken;                                                                     \
         uint256 currentAmount = getInitialAmount();                                                           \
+        /* check if the contract actually owns the specified amount of baseToken */                           \
         require(currentAmount <= IBEP20(baseToken).balanceOf(address(this)), 'BOFH:GIMMIE_MONEY');            \
                                                                                                               \
         /* transfer to 1st pool */                                                                            \
@@ -322,22 +378,26 @@ contract BofhContract
             uint amount1Out;                                                                                  \
             address tokenOut;                                                                                 \
             (amount0Out, amount1Out, tokenOut) = getAmountOutWithFee(i, transitToken, currentAmount forward_status_param);  \
-            status_snapshot                                                                                                         \
-            address swapBeneficiary = i >= (args_length-2)   /* it this the last swap of the path?                           */     \
-                                      ? address(this)        /*   \__ yes: the contract collects the output of the last swap */     \
-                                      : getPool(i+1);        /*   \__ no : send funds to the next pool                       */     \
+            status_snapshot                                                                                   \
+            address swapBeneficiary = i >= (args_length-2)   /* it this the last swap of the path? */         \
+                                      ? address(this)        /*   \__ yes: the contract collects the output of the last swap */ \
+                                      : getPool(i+1);        /*   \__ no : send funds to the next pool */     \
             {                                                                                                 \
                 /* limit this specific stack frame: */                                                        \
                 IGenericPair pair = IGenericPair(getPool(i));                                                 \
+                /* Perform the swap!! */                                                                      \
                 pair.swap(amount0Out, amount1Out, swapBeneficiary, new bytes(0));                             \
             }                                                                                                 \
+            /* we are now handling a certain amount the swap's output token */                                \
             transitToken = tokenOut;                                                                          \
             currentAmount = amount0Out == 0 ? amount1Out : amount0Out;                                        \
         }                                                                                                     \
                                                                                                               \
+        /* final sanity checks: */                                                                            \
         require(transitToken == baseToken, 'BOFH:NON_CIRCULAR_PATH');                                         \
         require(currentAmount >= getExpectedAmount(), 'BOFH:MP');                                             \
                                                                                                               \
+        /* return some status (this can be inspected with eth_call()) */                                      \
         trailer_return_code                                                                                   \
     }
 
