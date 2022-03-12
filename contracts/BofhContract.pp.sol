@@ -362,8 +362,26 @@ contract BofhContract
 #define multiswap_internal_returns_nodebug \
         uint256
 
+#define safe_transfer_1st_pool_deflationary_check                          \
+    {                                                                      \
+        uint256 prevAmount = IBEP20(baseToken).balanceOf(getPool(0));      \
+        safeTransfer(getPool(0), currentAmount);                           \
+        uint256 nextAmount = IBEP20(baseToken).balanceOf(getPool(0));      \
+        currentAmount = nextAmount - prevAmount;                           \
+    }
 
-#define code_multiswap_internal(function_name, return_type, alloc_status, forward_status_param, status_snapshot, trailer_return_code) \
+#define safe_transfer_1st_pool_nocheck \
+        safeTransfer(getPool(0), currentAmount);
+#define safe_transfer_next_pool_nocheck_end \
+        currentAmount = amount0Out == 0 ? amount1Out : amount0Out;
+
+#define safe_transfer_next_pool_deflationary_check_begin \
+        uint256 prevAmount = IBEP20(tokenOut).balanceOf(swapBeneficiary);
+#define safe_transfer_next_pool_deflationary_check_end \
+        currentAmount = IBEP20(tokenOut).balanceOf(swapBeneficiary) - prevAmount;
+
+
+#define code_multiswap_internal(function_name, return_type, alloc_status, safe_transfer_1st_pool, safe_transfer_next_pool_begin, safe_transfer_next_pool_end, forward_status_param, status_snapshot, trailer_return_code) \
     /* Main entry-point. Called from external overloads (see later) */                                        \
     function function_name(                                                                                   \
         uint args_length                                                                                      \
@@ -381,7 +399,7 @@ contract BofhContract
         require(currentAmount <= IBEP20(baseToken).balanceOf(address(this)), 'BOFH:GIMMIE_MONEY');            \
                                                                                                               \
         /* transfer to 1st pool */                                                                            \
-        safeTransfer(getPool(0), currentAmount);                                                              \
+        safe_transfer_1st_pool                                                                                \
                                                                                                               \
         for (uint i=0; i < args_length-1; i++)                                                                \
         {                                                                                                     \
@@ -390,10 +408,11 @@ contract BofhContract
             uint amount1Out;                                                                                  \
             address tokenOut;                                                                                 \
             (amount0Out, amount1Out, tokenOut) = getAmountOutWithFee(i, transitToken, currentAmount forward_status_param);  \
-            status_snapshot                                                                                   \
             address swapBeneficiary = i >= (args_length-2)   /* it this the last swap of the path? */         \
                                       ? address(this)        /*   \__ yes: the contract collects the output of the last swap */ \
                                       : getPool(i+1);        /*   \__ no : send funds to the next pool */     \
+            safe_transfer_next_pool_begin                                                                     \
+            status_snapshot                                                                                   \
             {                                                                                                 \
                 /* limit this specific stack frame: */                                                        \
                 IGenericPair pair = IGenericPair(getPool(i));                                                 \
@@ -402,7 +421,7 @@ contract BofhContract
             }                                                                                                 \
             /* we are now handling a certain amount the swap's output token */                                \
             transitToken = tokenOut;                                                                          \
-            currentAmount = amount0Out == 0 ? amount1Out : amount0Out;                                        \
+            safe_transfer_next_pool_end                                                                       \
         }                                                                                                     \
                                                                                                               \
         /* final sanity checks: */                                                                            \
@@ -416,14 +435,38 @@ contract BofhContract
     code_multiswap_internal(multiswap_internal
                             , multiswap_internal_returns_nodebug
                             , NOTHING
+                            , safe_transfer_1st_pool_nocheck
+                            , NOTHING
+                            , safe_transfer_next_pool_nocheck_end
                             , NOTHING
                             , NOTHING
                             , multiswap_internal_trailer_return_nodebug)
+   code_multiswap_internal(multiswap_internal_deflationary
+                           , multiswap_internal_returns_nodebug
+                           , NOTHING
+                           , safe_transfer_1st_pool_deflationary_check
+                           , safe_transfer_next_pool_deflationary_check_begin
+                           , safe_transfer_next_pool_deflationary_check_end
+                           , NOTHING
+                           , NOTHING
+                           , multiswap_internal_trailer_return_nodebug)
 
 #if !NO_DEBUG_CODE
     code_multiswap_internal(multiswap_internal_debug
                             , multiswap_internal_returns_debug
                             , multiswap_internal_alloc_staus_debug
+                            , safe_transfer_1st_pool_nocheck
+                            , NOTHING
+                            , safe_transfer_next_pool_nocheck_end
+                            , forward_status_param
+                            , multiswap_internal_save_status
+                            , multiswap_internal_trailer_return_debug)
+    code_multiswap_internal(multiswap_internal_deflationary_debug
+                            , multiswap_internal_returns_debug
+                            , multiswap_internal_alloc_staus_debug
+                            , safe_transfer_1st_pool_deflationary_check
+                            , safe_transfer_next_pool_deflationary_check_begin
+                            , safe_transfer_next_pool_deflationary_check_end
                             , forward_status_param
                             , multiswap_internal_save_status
                             , multiswap_internal_trailer_return_debug)
@@ -452,6 +495,14 @@ contract BofhContract
     multiswap_public_entrypoint(multiswap, multiswap_internal, multiswap_internal_returns_nodebug, 7) // selector=0xea704299 or 0xb009862e
     multiswap_public_entrypoint(multiswap, multiswap_internal, multiswap_internal_returns_nodebug, 8) // selector=0xdacdc381 or 0xabdef753
     multiswap_public_entrypoint(multiswap, multiswap_internal, multiswap_internal_returns_nodebug, 9) // selector=0x86a99d4f or 0xc1a8841b
+
+    multiswap_public_entrypoint(multiswapd, multiswap_internal_deflationary, multiswap_internal_returns_nodebug, 3) // selector=0x12558fb4 or 0xab25564d
+    multiswap_public_entrypoint(multiswapd, multiswap_internal_deflationary, multiswap_internal_returns_nodebug, 4) // selector=0xb4859ac7 or 0xdaa5960e
+    multiswap_public_entrypoint(multiswapd, multiswap_internal_deflationary, multiswap_internal_returns_nodebug, 5) // selector=0x0ef12bbe or 0x7aae10f1
+    multiswap_public_entrypoint(multiswapd, multiswap_internal_deflationary, multiswap_internal_returns_nodebug, 6) // selector=0xa0a3d9d9 or 0x3ca172e4
+    multiswap_public_entrypoint(multiswapd, multiswap_internal_deflationary, multiswap_internal_returns_nodebug, 7) // selector=0xea704299 or 0xb009862e
+    multiswap_public_entrypoint(multiswapd, multiswap_internal_deflationary, multiswap_internal_returns_nodebug, 8) // selector=0xdacdc381 or 0xabdef753
+    multiswap_public_entrypoint(multiswapd, multiswap_internal_deflationary, multiswap_internal_returns_nodebug, 9) // selector=0x86a99d4f or 0xc1a8841b
 #if !NO_DEBUG_CODE
     multiswap_public_entrypoint(multiswap_debug, multiswap_internal_debug, multiswap_internal_returns_debug, 3)
     multiswap_public_entrypoint(multiswap_debug, multiswap_internal_debug, multiswap_internal_returns_debug, 4)
@@ -488,6 +539,20 @@ contract BofhContract
         owner = newOwner;
     }
 
+    function hello()
+    external
+    returns(string memory)
+    {
+        return "Hello :-)";
+    }
+
+
+    function sum(uint a, uint b)
+    external
+    returns(uint)
+    {
+        return a + b;
+    }
 
     // PUBLIC API: this removes the contract from the chain status (however leaves its copy in its deploy block)
     //             - also sends any credited token back to the caller

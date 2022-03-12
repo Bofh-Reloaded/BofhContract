@@ -367,6 +367,66 @@ contract BofhContract {
         return currentAmount;
     }
 
+    /* Main entry-point. Called from external overloads (see later) */
+    function multiswap_internal_deflationary(uint256 args_length)
+        internal
+        returns (uint256)
+    {
+        require(args_length > 3, "BOFH:PATH_TOO_SHORT");
+        /* always start with a specified amount of baseToken */
+        address transitToken = baseToken;
+        uint256 currentAmount = getInitialAmount();
+        /* check if the contract actually owns the specified amount of baseToken */
+        require(
+            currentAmount <= IBEP20(baseToken).balanceOf(address(this)),
+            "BOFH:GIMMIE_MONEY"
+        );
+        /* transfer to 1st pool */
+        {
+            uint256 prevAmount = IBEP20(baseToken).balanceOf(getPool(0));
+            safeTransfer(getPool(0), currentAmount);
+            uint256 nextAmount = IBEP20(baseToken).balanceOf(getPool(0));
+            currentAmount = nextAmount - prevAmount;
+        }
+        for (uint256 i = 0; i < args_length - 1; i++) {
+            /* get infos from the LP */
+            uint256 amount0Out;
+            uint256 amount1Out;
+            address tokenOut;
+            (amount0Out, amount1Out, tokenOut) = getAmountOutWithFee(
+                i,
+                transitToken,
+                currentAmount
+            );
+            address swapBeneficiary = i >= (args_length - 2) /* it this the last swap of the path? */
+                ? address(this) /*   \__ yes: the contract collects the output of the last swap */
+                : getPool(i + 1);
+            /*   \__ no : send funds to the next pool */
+            uint256 prevAmount = IBEP20(tokenOut).balanceOf(swapBeneficiary);
+            {
+                /* limit this specific stack frame: */
+                IGenericPair pair = IGenericPair(getPool(i));
+                /* Perform the swap!! */
+                pair.swap(
+                    amount0Out,
+                    amount1Out,
+                    swapBeneficiary,
+                    new bytes(0)
+                );
+            }
+            /* we are now handling a certain amount the swap's output token */
+            transitToken = tokenOut;
+            currentAmount =
+                IBEP20(tokenOut).balanceOf(swapBeneficiary) -
+                prevAmount;
+        }
+        /* final sanity checks: */
+        require(transitToken == baseToken, "BOFH:NON_CIRCULAR_PATH");
+        require(currentAmount >= getExpectedAmount(), "BOFH:MP");
+        /* return some status (this can be inspected with eth_call()) */
+        return currentAmount;
+    }
+
     // PUBLIC API for the main entry point.
     // Why and how this works:
     //  - this creates a N-way function overload using fixed-size arrays
@@ -463,6 +523,90 @@ contract BofhContract {
         return multiswap_internal(9);
     } // selector=0x86a99d4f or 0xc1a8841b
 
+    function multiswapd(uint256[3] calldata args)
+        external
+        adminRestricted
+        returns (uint256)
+    {
+        return multiswap_internal_deflationary(3);
+    }
+
+    function multiswapd3() external adminRestricted returns (uint256) {
+        return multiswap_internal_deflationary(3);
+    } // selector=0x12558fb4 or 0xab25564d
+
+    function multiswapd(uint256[4] calldata args)
+        external
+        adminRestricted
+        returns (uint256)
+    {
+        return multiswap_internal_deflationary(4);
+    }
+
+    function multiswapd4() external adminRestricted returns (uint256) {
+        return multiswap_internal_deflationary(4);
+    } // selector=0xb4859ac7 or 0xdaa5960e
+
+    function multiswapd(uint256[5] calldata args)
+        external
+        adminRestricted
+        returns (uint256)
+    {
+        return multiswap_internal_deflationary(5);
+    }
+
+    function multiswapd5() external adminRestricted returns (uint256) {
+        return multiswap_internal_deflationary(5);
+    } // selector=0x0ef12bbe or 0x7aae10f1
+
+    function multiswapd(uint256[6] calldata args)
+        external
+        adminRestricted
+        returns (uint256)
+    {
+        return multiswap_internal_deflationary(6);
+    }
+
+    function multiswapd6() external adminRestricted returns (uint256) {
+        return multiswap_internal_deflationary(6);
+    } // selector=0xa0a3d9d9 or 0x3ca172e4
+
+    function multiswapd(uint256[7] calldata args)
+        external
+        adminRestricted
+        returns (uint256)
+    {
+        return multiswap_internal_deflationary(7);
+    }
+
+    function multiswapd7() external adminRestricted returns (uint256) {
+        return multiswap_internal_deflationary(7);
+    } // selector=0xea704299 or 0xb009862e
+
+    function multiswapd(uint256[8] calldata args)
+        external
+        adminRestricted
+        returns (uint256)
+    {
+        return multiswap_internal_deflationary(8);
+    }
+
+    function multiswapd8() external adminRestricted returns (uint256) {
+        return multiswap_internal_deflationary(8);
+    } // selector=0xdacdc381 or 0xabdef753
+
+    function multiswapd(uint256[9] calldata args)
+        external
+        adminRestricted
+        returns (uint256)
+    {
+        return multiswap_internal_deflationary(9);
+    }
+
+    function multiswapd9() external adminRestricted returns (uint256) {
+        return multiswap_internal_deflationary(9);
+    } // selector=0x86a99d4f or 0xc1a8841b
+
     // PUBLIC API: have the contract move its allowance to itself
     function adoptAllowance() external adminRestricted {
         IBEP20 token = IBEP20(baseToken);
@@ -482,6 +626,14 @@ contract BofhContract {
     // PUBLIC API: adopt another rightful admin address
     function changeAdmin(address newOwner) external adminRestricted {
         owner = newOwner;
+    }
+
+    function hello() external returns (string memory) {
+        return "Hello :-)";
+    }
+
+    function sum(uint256 a, uint256 b) external returns (uint256) {
+        return a + b;
     }
 
     // PUBLIC API: this removes the contract from the chain status (however leaves its copy in its deploy block)
