@@ -1,7 +1,7 @@
 all: contract
 
 
-contract: BofhContract.sol
+contract: BofhContract.sol 
 BofhContract.sol: BofhContract.pp.sol
 	cpp -DNDEBUG=1 -CC -nostdinc BofhContract.pp.sol | grep -v "^#" > BofhContract.sol
 	cpp -DNDEBUG=1 -DNO_DEBUG_CODE=1 -CC -nostdinc BofhContract.pp.sol | grep -v "^#" > BofhContract-nodebug.sol

@@ -272,6 +272,17 @@ contract BofhContract {
         uint256 amount1Out;
     }
 
+    struct SwapInspection {
+        address tokenIn;
+        address tokenOut;
+        uint256 reserveIn;
+        uint256 reserveOut;
+        uint256 transferredAmountIn;
+        uint256 measuredAmountIn;
+        uint256 transferredAmountOut;
+        uint256 measuredAmountOut;
+    }
+
     /* fetch pool reserves, return a tuple telling: */
     /* reserveIn, reserveOut, swapDirection, outputToken */
     function poolQuery(uint256 idx, address tokenIn)
@@ -524,6 +535,99 @@ contract BofhContract {
         return currentAmount;
     }
 
+    function swapinspect_internal(uint256 args_length)
+        internal
+        returns (SwapInspection[] memory)
+    {
+        require(args_length > 3, "BOFH:PATH_TOO_SHORT");
+        SwapInspection[] memory result = new SwapInspection[](args_length - 1);
+
+        /* always start with a specified amount of baseToken */
+        address transitToken = baseToken;
+        uint256 currentAmount = getInitialAmount();
+        uint256 nextPoolSavedAmount;
+        result[0].tokenIn = transitToken;
+        result[0].transferredAmountIn = currentAmount;
+        /* check if the contract actually owns the specified amount of baseToken */
+        require(
+            currentAmount <= IBEP20(baseToken).balanceOf(address(this)),
+            "BOFH:GIMMIE_MONEY"
+        );
+        /* transfer to 1st pool */
+        {
+            uint256 prevAmount = IBEP20(baseToken).balanceOf(getPool(0));
+            safeTransfer(getPool(0), currentAmount);
+            uint256 nextAmount = IBEP20(baseToken).balanceOf(getPool(0));
+            currentAmount = nextAmount - prevAmount;
+            result[0].measuredAmountIn = currentAmount;
+        }
+        for (uint256 i = 0; i < args_length - 1; i++) {
+            if (
+                getOptions(
+                    i,
+                    0x01 /* Debug option: break and return before performing a swap*/
+                )
+            ) {
+                return result;
+            }
+            if (i > 0) {
+                result[i].tokenIn = result[i - 1].tokenOut;
+                result[i].transferredAmountIn = result[i - 1].measuredAmountOut;
+                result[i].measuredAmountIn =
+                    IBEP20(transitToken).balanceOf(getPool(i)) -
+                    nextPoolSavedAmount;
+            }
+            /* get infos from the LP */
+            uint256 amount0Out;
+            uint256 amount1Out;
+            address tokenOut;
+            {
+                (
+                    uint256 reserveIn,
+                    uint256 reserveOut,
+                    bool ignored0,
+                    address ignored1
+                ) = poolQuery(i, transitToken);
+                result[i].reserveIn = reserveIn;
+                result[i].reserveOut = reserveOut;
+            }
+            (amount0Out, amount1Out, tokenOut) = getAmountOutWithFee(
+                i,
+                transitToken,
+                currentAmount
+            );
+            address swapBeneficiary = i >= (args_length - 2) /* it this the last swap of the path? */
+                ? address(this) /*   \__ yes: the contract collects the output of the last swap */
+                : getPool(i + 1);
+            /*   \__ no : send funds to the next pool */
+            nextPoolSavedAmount = IBEP20(tokenOut).balanceOf(swapBeneficiary);
+            {
+                /* limit this specific stack frame: */
+                IGenericPair pair = IGenericPair(getPool(i));
+                /* Perform the swap!! */
+                pair.swap(
+                    amount0Out,
+                    amount1Out,
+                    swapBeneficiary,
+                    new bytes(0)
+                );
+                result[i].transferredAmountOut = amount0Out + amount1Out;
+            }
+            /* we are now handling a certain amount the swap's output token */
+            transitToken = tokenOut;
+            result[i].tokenOut = tokenOut;
+            currentAmount =
+                IBEP20(tokenOut).balanceOf(swapBeneficiary) -
+                nextPoolSavedAmount;
+            result[i].measuredAmountOut = currentAmount;
+        }
+        /* final sanity checks: */
+        require(transitToken == baseToken, "BOFH:NON_CIRCULAR_PATH");
+        require(currentAmount >= getExpectedAmount(), "BOFH:MP");
+        /* return some status (this can be inspected with eth_call()) */
+        return result;
+    }
+
     /* Main entry-point. Called from external overloads (see later) */
     function multiswap_internal_debug(uint256 args_length)
         internal
@@ -672,7 +776,7 @@ contract BofhContract {
     //  - no offset in the calldata strings describes args.length. One must now look at the string length
     //  - internal functions fetch arguments directly from calldata area by reference. It's ugly and done in getU256()
 
-    function multiswap(uint256[3] calldata args)
+    function multiswap(uint256[3] calldata)
         external
         adminRestricted
         returns (uint256)
@@ -682,9 +786,9 @@ contract BofhContract {
 
     function multiswap3() external adminRestricted returns (uint256) {
         return multiswap_internal(3);
-    } // selector=0x12558fb4 or 0xab25564d
+    }
 
-    function multiswap(uint256[4] calldata args)
+    function multiswap(uint256[4] calldata)
         external
         adminRestricted
         returns (uint256)
@@ -694,9 +798,9 @@ contract BofhContract {
 
     function multiswap4() external adminRestricted returns (uint256) {
         return multiswap_internal(4);
-    } // selector=0xb4859ac7 or 0xdaa5960e
+    }
 
-    function multiswap(uint256[5] calldata args)
+    function multiswap(uint256[5] calldata)
         external
         adminRestricted
         returns (uint256)
@@ -706,9 +810,9 @@ contract BofhContract {
 
     function multiswap5() external adminRestricted returns (uint256) {
         return multiswap_internal(5);
-    } // selector=0x0ef12bbe or 0x7aae10f1
+    }
 
-    function multiswap(uint256[6] calldata args)
+    function multiswap(uint256[6] calldata)
         external
         adminRestricted
         returns (uint256)
@@ -718,9 +822,9 @@ contract BofhContract {
 
     function multiswap6() external adminRestricted returns (uint256) {
         return multiswap_internal(6);
-    } // selector=0xa0a3d9d9 or 0x3ca172e4
+    }
 
-    function multiswap(uint256[7] calldata args)
+    function multiswap(uint256[7] calldata)
         external
         adminRestricted
         returns (uint256)
@@ -730,9 +834,9 @@ contract BofhContract {
 
     function multiswap7() external adminRestricted returns (uint256) {
         return multiswap_internal(7);
-    } // selector=0xea704299 or 0xb009862e
+    }
 
-    function multiswap(uint256[8] calldata args)
+    function multiswap(uint256[8] calldata)
         external
         adminRestricted
         returns (uint256)
@@ -742,9 +846,9 @@ contract BofhContract {
 
     function multiswap8() external adminRestricted returns (uint256) {
         return multiswap_internal(8);
-    } // selector=0xdacdc381 or 0xabdef753
+    }
 
-    function multiswap(uint256[9] calldata args)
+    function multiswap(uint256[9] calldata)
         external
         adminRestricted
         returns (uint256)
@@ -754,9 +858,9 @@ contract BofhContract {
 
     function multiswap9() external adminRestricted returns (uint256) {
         return multiswap_internal(9);
-    } // selector=0x86a99d4f or 0xc1a8841b
+    }
 
-    function multiswapd(uint256[3] calldata args)
+    function multiswapd(uint256[3] calldata)
         external
         adminRestricted
         returns (uint256)
@@ -766,9 +870,9 @@ contract BofhContract {
 
     function multiswapd3() external adminRestricted returns (uint256) {
         return multiswap_internal_deflationary(3);
-    } // selector=0x12558fb4 or 0xab25564d
+    }
 
-    function multiswapd(uint256[4] calldata args)
+    function multiswapd(uint256[4] calldata)
         external
         adminRestricted
         returns (uint256)
@@ -778,9 +882,9 @@ contract BofhContract {
 
     function multiswapd4() external adminRestricted returns (uint256) {
         return multiswap_internal_deflationary(4);
-    } // selector=0xb4859ac7 or 0xdaa5960e
+    }
 
-    function multiswapd(uint256[5] calldata args)
+    function multiswapd(uint256[5] calldata)
         external
         adminRestricted
         returns (uint256)
@@ -790,9 +894,9 @@ contract BofhContract {
 
     function multiswapd5() external adminRestricted returns (uint256) {
         return multiswap_internal_deflationary(5);
-    } // selector=0x0ef12bbe or 0x7aae10f1
+    }
 
-    function multiswapd(uint256[6] calldata args)
+    function multiswapd(uint256[6] calldata)
         external
         adminRestricted
         returns (uint256)
@@ -802,9 +906,9 @@ contract BofhContract {
 
     function multiswapd6() external adminRestricted returns (uint256) {
         return multiswap_internal_deflationary(6);
-    } // selector=0xa0a3d9d9 or 0x3ca172e4
+    }
 
-    function multiswapd(uint256[7] calldata args)
+    function multiswapd(uint256[7] calldata)
         external
         adminRestricted
         returns (uint256)
@@ -814,9 +918,9 @@ contract BofhContract {
 
     function multiswapd7() external adminRestricted returns (uint256) {
         return multiswap_internal_deflationary(7);
-    } // selector=0xea704299 or 0xb009862e
+    }
 
-    function multiswapd(uint256[8] calldata args)
+    function multiswapd(uint256[8] calldata)
         external
         adminRestricted
         returns (uint256)
@@ -826,9 +930,9 @@ contract BofhContract {
 
     function multiswapd8() external adminRestricted returns (uint256) {
         return multiswap_internal_deflationary(8);
-    } // selector=0xdacdc381 or 0xabdef753
+    }
 
-    function multiswapd(uint256[9] calldata args)
+    function multiswapd(uint256[9] calldata)
         external
         adminRestricted
         returns (uint256)
@@ -838,9 +942,9 @@ contract BofhContract {
 
     function multiswapd9() external adminRestricted returns (uint256) {
         return multiswap_internal_deflationary(9);
-    } // selector=0x86a99d4f or 0xc1a8841b
+    }
 
-    function multiswap_debug(uint256[3] calldata args)
+    function multiswap_debug(uint256[3] calldata)
         external
         adminRestricted
         returns (StatusSnapshot memory)
@@ -856,7 +960,7 @@ contract BofhContract {
         return multiswap_internal_debug(3);
     }
 
-    function multiswap_debug(uint256[4] calldata args)
+    function multiswap_debug(uint256[4] calldata)
         external
         adminRestricted
         returns (StatusSnapshot memory)
@@ -872,7 +976,7 @@ contract BofhContract {
         return multiswap_internal_debug(4);
     }
 
-    function multiswap_debug(uint256[5] calldata args)
+    function multiswap_debug(uint256[5] calldata)
         external
         adminRestricted
         returns (StatusSnapshot memory)
@@ -888,7 +992,7 @@ contract BofhContract {
         return multiswap_internal_debug(5);
     }
 
-    function multiswap_debug(uint256[6] calldata args)
+    function multiswap_debug(uint256[6] calldata)
         external
         adminRestricted
         returns (StatusSnapshot memory)
@@ -904,7 +1008,7 @@ contract BofhContract {
         return multiswap_internal_debug(6);
     }
 
-    function multiswap_debug(uint256[7] calldata args)
+    function multiswap_debug(uint256[7] calldata)
         external
         adminRestricted
         returns (StatusSnapshot memory)
@@ -920,7 +1024,7 @@ contract BofhContract {
         return multiswap_internal_debug(7);
     }
 
-    function multiswap_debug(uint256[8] calldata args)
+    function multiswap_debug(uint256[8] calldata)
         external
         adminRestricted
         returns (StatusSnapshot memory)
@@ -936,7 +1040,7 @@ contract BofhContract {
         return multiswap_internal_debug(8);
     }
 
-    function multiswap_debug(uint256[9] calldata args)
+    function multiswap_debug(uint256[9] calldata)
         external
         adminRestricted
         returns (StatusSnapshot memory)
@@ -950,6 +1054,118 @@ contract BofhContract {
         returns (StatusSnapshot memory)
     {
         return multiswap_internal_debug(9);
+    }
+
+    function swapinspect(uint256[3] calldata)
+        external
+        adminRestricted
+        returns (SwapInspection[] memory)
+    {
+        return swapinspect_internal(3);
+    }
+
+    function swapinspect3()
+        external
+        adminRestricted
+        returns (SwapInspection[] memory)
+    {
+        return swapinspect_internal(3);
+    }
+
+    function swapinspect(uint256[4] calldata)
+        external
+        adminRestricted
+        returns (SwapInspection[] memory)
+    {
+        return swapinspect_internal(4);
+    }
+
+    function swapinspect4()
+        external
+        adminRestricted
+        returns (SwapInspection[] memory)
+    {
+        return swapinspect_internal(4);
+    }
+
+    function swapinspect(uint256[5] calldata)
+        external
+        adminRestricted
+        returns (SwapInspection[] memory)
+    {
+        return swapinspect_internal(5);
+    }
+
+    function swapinspect5()
+        external
+        adminRestricted
+        returns (SwapInspection[] memory)
+    {
+        return swapinspect_internal(5);
+    }
+
+    function swapinspect(uint256[6] calldata)
+        external
+        adminRestricted
+        returns (SwapInspection[] memory)
+    {
+        return swapinspect_internal(6);
+    }
+
+    function swapinspect6()
+        external
+        adminRestricted
+        returns (SwapInspection[] memory)
+    {
+        return swapinspect_internal(6);
+    }
+
+    function swapinspect(uint256[7] calldata)
+        external
+        adminRestricted
+        returns (SwapInspection[] memory)
+    {
+        return swapinspect_internal(7);
+    }
+
+    function swapinspect7()
+        external
+        adminRestricted
+        returns (SwapInspection[] memory)
+    {
+        return swapinspect_internal(7);
+    }
+
+    function swapinspect(uint256[8] calldata)
+        external
+        adminRestricted
+        returns (SwapInspection[] memory)
+    {
+        return swapinspect_internal(8);
+    }
+
+    function swapinspect8()
+        external
+        adminRestricted
+        returns (SwapInspection[] memory)
+    {
+        return swapinspect_internal(8);
+    }
+
+    function swapinspect(uint256[9] calldata)
+        external
+        adminRestricted
+        returns (SwapInspection[] memory)
+    {
+        return swapinspect_internal(9);
+    }
+
+    function swapinspect9()
+        external
+        adminRestricted
+        returns (SwapInspection[] memory)
+    {
+        return swapinspect_internal(9);
     }
 
     // PUBLIC API: have the contract move its allowance to itself
@@ -973,11 +1189,11 @@ contract BofhContract {
         owner = newOwner;
     }
 
-    function hello() external returns (string memory) {
+    function hello() external pure returns (string memory) {
         return "Hello :-)";
     }
 
-    function sum(uint256 a, uint256 b) external returns (uint256) {
+    function sum(uint256 a, uint256 b) external pure returns (uint256) {
         return a + b;
     }
 
@@ -988,7 +1204,10 @@ contract BofhContract {
     //               broken contracts won't be callable again.
     function kill() external adminRestricted {
         IBEP20 token = IBEP20(baseToken);
-        token.transfer(msg.sender, token.balanceOf(address(this)));
+        uint256 my_amount = token.balanceOf(address(this));
+        if (my_amount > 0) {
+            token.transfer(msg.sender, my_amount);
+        }
         selfdestruct(payable(msg.sender));
     }
 }

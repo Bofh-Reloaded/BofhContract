@@ -253,6 +253,17 @@ contract BofhContract
     }
 #endif // !NO_DEBUG_CODE
 
+    struct SwapInspection {
+        address tokenIn;
+        address tokenOut;
+        uint256 reserveIn;
+        uint256 reserveOut;
+        uint256 transferredAmountIn;
+        uint256 measuredAmountIn;
+        uint256 transferredAmountOut;
+        uint256 measuredAmountOut;
+    }
+
 #define NOTHING
 #define inject_status_param           ,StatusSnapshot memory status
 #define forward_status_param          , status
@@ -451,6 +462,110 @@ contract BofhContract
                            , NOTHING
                            , multiswap_internal_trailer_return_nodebug)
 
+
+    function swapinspect_internal(uint256 args_length)
+        internal
+        returns (SwapInspection[] memory)
+    {
+        require(args_length > 3, "BOFH:PATH_TOO_SHORT");
+        SwapInspection[] memory result = new SwapInspection[](args_length - 1);
+
+        /* always start with a specified amount of baseToken */
+        address transitToken = baseToken;
+        uint256 currentAmount = getInitialAmount();
+        uint256 nextPoolSavedAmount;
+        result[0].tokenIn = transitToken;
+        result[0].transferredAmountIn = currentAmount;
+        /* check if the contract actually owns the specified amount of baseToken */
+        require(
+            currentAmount <= IBEP20(baseToken).balanceOf(address(this)),
+            "BOFH:GIMMIE_MONEY"
+        );
+        /* transfer to 1st pool */
+        {
+            uint256 prevAmount = IBEP20(baseToken).balanceOf(getPool(0));
+            safeTransfer(getPool(0), currentAmount);
+            uint256 nextAmount = IBEP20(baseToken).balanceOf(getPool(0));
+            currentAmount = nextAmount - prevAmount;
+            result[0].measuredAmountIn = currentAmount;
+        }
+        for (uint256 i = 0; i < args_length - 1; i++) {
+            if (getOptions(i, OPT_BREAK_EARLY))
+            {
+                return result;
+            }
+            if (i > 0)
+            {
+                result[i].tokenIn = result[i-1].tokenOut;
+                result[i].transferredAmountIn = result[i-1].measuredAmountOut;
+                result[i].measuredAmountIn = IBEP20(transitToken).balanceOf(getPool(i)) - nextPoolSavedAmount;
+            }
+            /* get infos from the LP */
+            uint256 amount0Out;
+            uint256 amount1Out;
+            address tokenOut;
+            {
+                (
+                    uint256 reserveIn,
+                    uint256 reserveOut,
+                    bool ignored0,
+                    address ignored1
+                ) = poolQuery(i, transitToken);
+                result[i].reserveIn = reserveIn;
+                result[i].reserveOut = reserveOut;
+            }
+            (amount0Out, amount1Out, tokenOut) = getAmountOutWithFee(
+                i,
+                transitToken,
+                currentAmount
+            );
+            address swapBeneficiary = i >= (args_length - 2) /* it this the last swap of the path? */
+                ? address(this) /*   \__ yes: the contract collects the output of the last swap */
+                : getPool(i + 1);
+            /*   \__ no : send funds to the next pool */
+            nextPoolSavedAmount = IBEP20(tokenOut).balanceOf(swapBeneficiary);
+            {
+                /* limit this specific stack frame: */
+                IGenericPair pair = IGenericPair(getPool(i));
+                /* Perform the swap!! */
+                pair.swap(
+                    amount0Out,
+                    amount1Out,
+                    swapBeneficiary,
+                    new bytes(0)
+                );
+                result[i].transferredAmountOut = amount0Out + amount1Out;
+            }
+            /* we are now handling a certain amount the swap's output token */
+            transitToken = tokenOut;
+            result[i].tokenOut = tokenOut;
+            currentAmount =
+                IBEP20(tokenOut).balanceOf(swapBeneficiary) -
+                nextPoolSavedAmount;
+            result[i].measuredAmountOut = currentAmount;
+        }
+        /* final sanity checks: */
+        require(transitToken == baseToken, "BOFH:NON_CIRCULAR_PATH");
+        require(currentAmount >= getExpectedAmount(), "BOFH:MP");
+        /* return some status (this can be inspected with eth_call()) */
+        return result;
+    }
+
+
+#define swapinspect_public_entrypoint(n)            \
+    function swapinspect(uint256[n] calldata)       \
+        external                                    \
+        adminRestricted                             \
+        returns (SwapInspection[] memory)           \
+    {                                               \
+        return swapinspect_internal(n);             \
+    }                                               \
+    function swapinspect##n() external adminRestricted returns (SwapInspection[] memory)\
+    {                                                                                   \
+        return swapinspect_internal(n);                                                 \
+    }
+
+
 #if !NO_DEBUG_CODE
     code_multiswap_internal(multiswap_internal_debug
                             , multiswap_internal_returns_debug
@@ -485,24 +600,24 @@ contract BofhContract
     //  - internal functions fetch arguments directly from calldata area by reference. It's ugly and done in getU256()
 
 #define multiswap_public_entrypoint(function_name, internal_function, status_param, tuple_len) \
-    function function_name(uint256[tuple_len] calldata args) external adminRestricted returns(status_param) { return internal_function(tuple_len); } \
+    function function_name(uint256[tuple_len] calldata) external adminRestricted returns(status_param) { return internal_function(tuple_len); } \
     function function_name##tuple_len() external adminRestricted returns(status_param) { return internal_function(tuple_len); }
 
-    multiswap_public_entrypoint(multiswap, multiswap_internal, multiswap_internal_returns_nodebug, 3) // selector=0x12558fb4 or 0xab25564d
-    multiswap_public_entrypoint(multiswap, multiswap_internal, multiswap_internal_returns_nodebug, 4) // selector=0xb4859ac7 or 0xdaa5960e
-    multiswap_public_entrypoint(multiswap, multiswap_internal, multiswap_internal_returns_nodebug, 5) // selector=0x0ef12bbe or 0x7aae10f1
-    multiswap_public_entrypoint(multiswap, multiswap_internal, multiswap_internal_returns_nodebug, 6) // selector=0xa0a3d9d9 or 0x3ca172e4
-    multiswap_public_entrypoint(multiswap, multiswap_internal, multiswap_internal_returns_nodebug, 7) // selector=0xea704299 or 0xb009862e
-    multiswap_public_entrypoint(multiswap, multiswap_internal, multiswap_internal_returns_nodebug, 8) // selector=0xdacdc381 or 0xabdef753
-    multiswap_public_entrypoint(multiswap, multiswap_internal, multiswap_internal_returns_nodebug, 9) // selector=0x86a99d4f or 0xc1a8841b
+    multiswap_public_entrypoint(multiswap, multiswap_internal, multiswap_internal_returns_nodebug, 3)
+    multiswap_public_entrypoint(multiswap, multiswap_internal, multiswap_internal_returns_nodebug, 4)
+    multiswap_public_entrypoint(multiswap, multiswap_internal, multiswap_internal_returns_nodebug, 5)
+    multiswap_public_entrypoint(multiswap, multiswap_internal, multiswap_internal_returns_nodebug, 6)
+    multiswap_public_entrypoint(multiswap, multiswap_internal, multiswap_internal_returns_nodebug, 7)
+    multiswap_public_entrypoint(multiswap, multiswap_internal, multiswap_internal_returns_nodebug, 8)
+    multiswap_public_entrypoint(multiswap, multiswap_internal, multiswap_internal_returns_nodebug, 9)
 
-    multiswap_public_entrypoint(multiswapd, multiswap_internal_deflationary, multiswap_internal_returns_nodebug, 3) // selector=0x12558fb4 or 0xab25564d
-    multiswap_public_entrypoint(multiswapd, multiswap_internal_deflationary, multiswap_internal_returns_nodebug, 4) // selector=0xb4859ac7 or 0xdaa5960e
-    multiswap_public_entrypoint(multiswapd, multiswap_internal_deflationary, multiswap_internal_returns_nodebug, 5) // selector=0x0ef12bbe or 0x7aae10f1
-    multiswap_public_entrypoint(multiswapd, multiswap_internal_deflationary, multiswap_internal_returns_nodebug, 6) // selector=0xa0a3d9d9 or 0x3ca172e4
-    multiswap_public_entrypoint(multiswapd, multiswap_internal_deflationary, multiswap_internal_returns_nodebug, 7) // selector=0xea704299 or 0xb009862e
-    multiswap_public_entrypoint(multiswapd, multiswap_internal_deflationary, multiswap_internal_returns_nodebug, 8) // selector=0xdacdc381 or 0xabdef753
-    multiswap_public_entrypoint(multiswapd, multiswap_internal_deflationary, multiswap_internal_returns_nodebug, 9) // selector=0x86a99d4f or 0xc1a8841b
+    multiswap_public_entrypoint(multiswapd, multiswap_internal_deflationary, multiswap_internal_returns_nodebug, 3)
+    multiswap_public_entrypoint(multiswapd, multiswap_internal_deflationary, multiswap_internal_returns_nodebug, 4)
+    multiswap_public_entrypoint(multiswapd, multiswap_internal_deflationary, multiswap_internal_returns_nodebug, 5)
+    multiswap_public_entrypoint(multiswapd, multiswap_internal_deflationary, multiswap_internal_returns_nodebug, 6)
+    multiswap_public_entrypoint(multiswapd, multiswap_internal_deflationary, multiswap_internal_returns_nodebug, 7)
+    multiswap_public_entrypoint(multiswapd, multiswap_internal_deflationary, multiswap_internal_returns_nodebug, 8)
+    multiswap_public_entrypoint(multiswapd, multiswap_internal_deflationary, multiswap_internal_returns_nodebug, 9)
 #if !NO_DEBUG_CODE
     multiswap_public_entrypoint(multiswap_debug, multiswap_internal_debug, multiswap_internal_returns_debug, 3)
     multiswap_public_entrypoint(multiswap_debug, multiswap_internal_debug, multiswap_internal_returns_debug, 4)
@@ -512,6 +627,14 @@ contract BofhContract
     multiswap_public_entrypoint(multiswap_debug, multiswap_internal_debug, multiswap_internal_returns_debug, 8)
     multiswap_public_entrypoint(multiswap_debug, multiswap_internal_debug, multiswap_internal_returns_debug, 9)
 #endif // !NO_DEBUG_CODE
+
+    swapinspect_public_entrypoint(3)
+    swapinspect_public_entrypoint(4)
+    swapinspect_public_entrypoint(5)
+    swapinspect_public_entrypoint(6)
+    swapinspect_public_entrypoint(7)
+    swapinspect_public_entrypoint(8)
+    swapinspect_public_entrypoint(9)
 
     // PUBLIC API: have the contract move its allowance to itself
     function adoptAllowance()
@@ -540,7 +663,7 @@ contract BofhContract
     }
 
     function hello()
-    external
+    external pure
     returns(string memory)
     {
         return "Hello :-)";
@@ -548,7 +671,7 @@ contract BofhContract
 
 
     function sum(uint a, uint b)
-    external
+    external pure
     returns(uint)
     {
         return a + b;
@@ -564,7 +687,11 @@ contract BofhContract
     adminRestricted()
     {
         IBEP20 token = IBEP20(baseToken);
-        token.transfer(msg.sender, token.balanceOf(address(this)));
+        uint256 my_amount = token.balanceOf(address(this));
+        if (my_amount > 0)
+        {
+            token.transfer(msg.sender, my_amount);
+        }
         selfdestruct(payable(msg.sender));
     }
 }
