@@ -442,7 +442,7 @@ contract BofhContract {
         internal
         returns (SwapInspection[] memory)
     {
-        require(args_length > 3, "BOFH:PATH_TOO_SHORT");
+        require(args_length > 0, "BOFH:PATH_TOO_SHORT");
         SwapInspection[] memory result = new SwapInspection[](args_length - 1);
 
         /* always start with a specified amount of baseToken */
@@ -524,9 +524,6 @@ contract BofhContract {
                 nextPoolSavedAmount;
             result[i].measuredAmountOut = currentAmount;
         }
-        /* final sanity checks: */
-        require(transitToken == baseToken, "BOFH:NON_CIRCULAR_PATH");
-        require(currentAmount >= getExpectedAmount(), "BOFH:MP");
         /* return some status (this can be inspected with eth_call()) */
         return result;
     }
@@ -709,6 +706,38 @@ contract BofhContract {
 
     function multiswapd9() external adminRestricted returns (uint256) {
         return multiswap_internal_deflationary(9);
+    }
+
+    function swapinspect(uint256[1] calldata)
+        external
+        adminRestricted
+        returns (SwapInspection[] memory)
+    {
+        return swapinspect_internal(1);
+    }
+
+    function swapinspect1()
+        external
+        adminRestricted
+        returns (SwapInspection[] memory)
+    {
+        return swapinspect_internal(1);
+    }
+
+    function swapinspect(uint256[2] calldata)
+        external
+        adminRestricted
+        returns (SwapInspection[] memory)
+    {
+        return swapinspect_internal(2);
+    }
+
+    function swapinspect2()
+        external
+        adminRestricted
+        returns (SwapInspection[] memory)
+    {
+        return swapinspect_internal(2);
     }
 
     function swapinspect(uint256[3] calldata)

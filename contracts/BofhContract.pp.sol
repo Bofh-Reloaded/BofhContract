@@ -467,7 +467,7 @@ contract BofhContract
         internal
         returns (SwapInspection[] memory)
     {
-        require(args_length > 3, "BOFH:PATH_TOO_SHORT");
+        require(args_length > 0, "BOFH:PATH_TOO_SHORT");
         SwapInspection[] memory result = new SwapInspection[](args_length - 1);
 
         /* always start with a specified amount of baseToken */
@@ -544,9 +544,6 @@ contract BofhContract
                 nextPoolSavedAmount;
             result[i].measuredAmountOut = currentAmount;
         }
-        /* final sanity checks: */
-        require(transitToken == baseToken, "BOFH:NON_CIRCULAR_PATH");
-        require(currentAmount >= getExpectedAmount(), "BOFH:MP");
         /* return some status (this can be inspected with eth_call()) */
         return result;
     }
@@ -628,6 +625,8 @@ contract BofhContract
     multiswap_public_entrypoint(multiswap_debug, multiswap_internal_debug, multiswap_internal_returns_debug, 9)
 #endif // !NO_DEBUG_CODE
 
+    swapinspect_public_entrypoint(1)
+    swapinspect_public_entrypoint(2)
     swapinspect_public_entrypoint(3)
     swapinspect_public_entrypoint(4)
     swapinspect_public_entrypoint(5)
