@@ -259,7 +259,7 @@ contract BofhContract {
     }
 
     // Calculate optimal input amount
-    function calculateOptimalAmountIn(SwapState memory state, PoolState memory pool) internal pure returns (uint256) {
+    function calculateOptimalAmountIn(SwapState memory state, PoolState memory) internal pure returns (uint256) {
         uint256 baseAmount = state.currentAmount * (PRECISION - getFee(state.pathLength - 1));
         
         if (state.pathLength == FOUR_WAY) {
