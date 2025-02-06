@@ -53,7 +53,7 @@ contract MockPair {
         uint256 amount0 = balance0 - _reserve0;
         uint256 amount1 = balance1 - _reserve1;
         
-        uint256 _totalSupply = liquidity; // Placeholder for LP token supply
+        uint256 _totalSupply = totalSupply;
         if (_totalSupply == 0) {
             liquidity = Math.sqrt(amount0 * amount1) - MINIMUM_LIQUIDITY;
             _mint(address(0), MINIMUM_LIQUIDITY); // Permanently lock the first MINIMUM_LIQUIDITY tokens
@@ -77,7 +77,7 @@ contract MockPair {
         uint256 balance1 = MockToken(token1).balanceOf(address(this));
         uint256 liquidity = balanceOf[address(this)];
         
-        uint256 _totalSupply = totalSupply; // Placeholder for LP token total supply
+        uint256 _totalSupply = totalSupply;
         amount0 = (liquidity * balance0) / _totalSupply;
         amount1 = (liquidity * balance1) / _totalSupply;
         require(amount0 > 0 && amount1 > 0, "Insufficient liquidity burned");
@@ -169,12 +169,7 @@ contract MockPair {
 }
 
 interface IUniswapV2Callee {
-    function uniswapV2Call(
-        address sender,
-        uint256 amount0,
-        uint256 amount1,
-        bytes calldata data
-    ) external;
+    function uniswapV2Call(address, uint256, uint256, bytes calldata) external;
 }
 
 library Math {
