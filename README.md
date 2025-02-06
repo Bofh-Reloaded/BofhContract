@@ -1,176 +1,247 @@
-# BofhContract
+# BofhContract - Advanced DEX Arbitrage System
 
-BofhContract.sol implements on-chain execution of optimized swap paths with advanced mathematical optimizations.
+BofhContract implements a sophisticated arbitrage system for decentralized exchanges (DEX) using advanced mathematical principles and MEV protection mechanisms.
 
-## Advanced Multi-Way Swap Implementation
+## Mathematical Foundations
 
-### Mathematical Foundations
+### 1. Golden Ratio Optimization (φ)
 
-1. Golden Ratio Optimization (4-Way Swaps)
-   - Uses the golden ratio (φ ≈ 0.618034) for optimal trade splitting
-   - Based on the principle that φ provides the most efficient division of trading volume
-   - Minimizes price impact by maintaining optimal proportions between swaps
-   - Formula: optimalAmount = currentAmount * φ
+The contract uses the golden ratio (φ ≈ 0.618034) for optimal trade splitting based on the following principles:
 
-2. Dynamic Programming with Golden Ratio Squared (5-Way Swaps)
-   - Uses φ2 ≈ 0.381966 for deeper paths
-   - Implements dynamic programming for historical amount tracking
-   - Adjusts tolerance based on path position using inverse golden ratio
-   - Formula: tolerance = 1 + ((position + 1) * (1-φ)) / 5
+1. Fibonacci Sequence Properties:
+   - φ = (1 + √5) / 2 ≈ 1.618034
+   - 1/φ = φ - 1 ≈ 0.618034
+   - φ2 = φ + 1 ≈ 2.618034
 
-3. Geometric Mean Price Impact
-   - Uses geometric mean to validate swap efficiency
-   - Formula: expectedOutput = √(previousAmount * currentAmount)
-   - Provides more stable price impact assessment than arithmetic mean
-
-4. Advanced Price Impact Calculation
+2. Trade Size Optimization:
    ```solidity
-   function calculatePriceImpact(amountIn, pool) {
-       k = reserveIn * reserveOut
-       newReserveIn = reserveIn + amountIn
-       newK = newReserveIn * reserveOut
-       impactCubed = (newK * 1e6 * 1e6) / (k * 1e6)
-       return cbrt(impactCubed)
+   optimalAmount = currentAmount * GOLDEN_RATIO // φ ≈ 0.618034
+   ```
+   - Balances price impact vs. trade size
+   - Minimizes slippage across multiple pools
+   - Maintains optimal liquidity utilization
+
+3. Path-Specific Applications:
+   - 4-way paths: Uses φ directly
+   - 5-way paths: Uses φ2 for deeper paths
+   - Dynamic adjustment based on path length
+
+### 2. Price Impact Calculation
+
+The contract uses cubic root for price impact calculation to provide more accurate slippage estimation:
+
+```solidity
+function calculatePriceImpact(amountIn, pool) {
+    k = reserveIn * reserveOut;
+    newReserveIn = reserveIn + amountIn;
+    newK = newReserveIn * reserveOut;
+    impactCubed = (newK * PRECISION * PRECISION) / (k * PRECISION);
+    return cbrt(impactCubed);
+}
+```
+
+This approach:
+- Provides more accurate impact assessment than linear calculation
+- Better handles large trades
+- Accounts for pool depth
+
+### 3. MEV Protection
+
+The contract implements multiple layers of MEV protection:
+
+1. Sandwich Attack Detection:
+   ```solidity
+   expectedPrice = (reserveOut * PRECISION) / reserveIn;
+   actualPrice = (currentAmount * PRECISION) / reserveIn;
+   priceDeviation = |actualPrice - expectedPrice| * PRECISION / expectedPrice;
+   require(priceDeviation <= sandwichProtectionBips);
+   ```
+
+2. Dynamic Slippage Tolerance:
+   ```solidity
+   maxAllowedSlippage = (MAX_SLIPPAGE * (idx + 1)) / pathLength;
+   ```
+   - Increases with path depth
+   - Accounts for cumulative impact
+
+3. Price Impact Monitoring:
+   - Uses geometric mean for validation
+   - Tracks cumulative impact
+   - Enforces maximum deviation limits
+
+### 4. Dynamic Programming Implementation
+
+For 5-way paths, the contract uses dynamic programming to optimize execution:
+
+1. Historical Analysis:
+   ```solidity
+   historicalAmounts[i] = currentAmount;
+   expectedOutput = geometricMean(
+       historicalAmounts[i-1],
+       i > 1 ? historicalAmounts[i-2] : preSwapAmount
+   );
+   ```
+
+2. Progressive Tolerance:
+   ```solidity
+   tolerance = PRECISION + ((i + 1) * INVERSE_GOLDEN_RATIO) / 5;
+   ```
+   - Adapts to path position
+   - Uses inverse golden ratio for scaling
+
+## Advanced Features
+
+### 1. Risk Management System
+
+```solidity
+// Risk parameters
+mapping(address => bool) public blacklistedPools;
+uint256 public maxTradeVolume;
+uint256 public minPoolLiquidity;
+uint256 public maxPriceImpact;
+uint256 public sandwichProtectionBips;
+```
+
+1. Pool Validation:
+   - Minimum liquidity requirements
+   - Blacklist functionality
+   - Volume-based limits
+
+2. Dynamic Profit Thresholds:
+   ```solidity
+   gasUsed = GAS_OVERHEAD_PER_SWAP * (idx + 1);
+   minProfitRequired = (gasUsed * tx.gasprice * 12) / 10; // 20% buffer
+   ```
+   - Accounts for gas costs
+   - Includes safety buffer
+   - Prevents unprofitable trades
+
+### 2. Path Optimization
+
+1. Four-Way Paths:
+   ```
+   baseToken → token1 → token2 → token3 → baseToken
+   ```
+   - Uses golden ratio (φ)
+   - Optimal for moderate market inefficiencies
+   - Lower gas costs
+
+2. Five-Way Paths:
+   ```
+   baseToken → token1 → token2 → token3 → token4 → baseToken
+   ```
+   - Uses golden ratio squared (φ2)
+   - Better for complex arbitrage
+   - Higher potential profit
+
+### 3. Safety Mechanisms
+
+1. Emergency Controls:
+   ```solidity
+   function emergencyPause(bool pause) external onlyOwner {
+       emergencyPaused = pause;
+       if (pause) {
+           // Withdraw all funds
+           uint256 balance = IBEP20(baseToken).balanceOf(address(this));
+           if (balance > 0) {
+               IBEP20(baseToken).transfer(msg.sender, balance);
+           }
+       }
    }
    ```
 
-### Performance Optimizations
+2. Circuit Breakers:
+   - Maximum slippage per swap
+   - Cumulative impact limits
+   - Volume restrictions
 
-1. Four-Way Path Optimization
-   - Initial split using golden ratio (φ)
-   - Geometric mean validation at each step
-   - Cumulative impact tracking
-   - Maximum 4% total slippage (1% per swap)
+## Technical Implementation
 
-2. Five-Way Path Optimization
-   - Initial split using golden ratio squared (φ2)
-   - Dynamic programming for historical tracking
-   - Progressive tolerance adjustment
-   - Maximum 5% total slippage (1% per swap)
+### 1. Gas Optimizations
 
-3. Memory Optimization
-   - Fixed-size arrays for historical data
-   - Efficient struct packing
+1. Memory Management:
+   - Packed structs
+   - Efficient calldata handling
    - Minimal storage operations
-   - Optimized calldata access
 
-### Technical Implementation
+2. Computational Efficiency:
+   - Unchecked arithmetic where safe
+   - Assembly for critical operations
+   - Optimized loops
 
-1. Advanced Data Structures
-   ```solidity
-   struct SwapState {
-       address transitToken;
-       uint256 currentAmount;
-       bool isLastSwap;
-       uint256 amountInWithFee;
-       uint256 amountOut;
-       uint256 slippage;
-       uint256 optimalityScore;
-       uint256 pathLength;
-       uint256 cumulativeImpact;
-       uint256 volumeProfile;
-   }
-   ```
+### 2. Error Handling
 
-2. Pool Analysis
-   ```solidity
-   struct PoolState {
-       uint256 reserveIn;
-       uint256 reserveOut;
-       bool sellingToken0;
-       address tokenOut;
-       uint256 priceImpact;
-       uint256 depth;
-       uint256 volatility;
-   }
-   ```
-
-### Performance Benchmarks
-
-1. Four-Way Swaps
-   - Gas Usage: Optimized by ~15% through golden ratio splitting
-   - Price Impact: Reduced by up to 25% compared to naive implementation
-   - Success Rate: >98% with optimal path selection
-
-2. Five-Way Swaps
-   - Gas Usage: Optimized by ~20% through dynamic programming
-   - Price Impact: Reduced by up to 30% using progressive tolerance
-   - Success Rate: >95% with optimal path selection
-
-### Safety Mechanisms
-
-1. Slippage Protection
-   - Maximum 1% slippage per swap
-   - Cumulative impact tracking
-   - Dynamic tolerance adjustment
-   - Geometric mean validation
-
-2. Path Validation
-   - Optimal split ratio verification
-   - Reserve ratio checks
-   - Price impact assessment
-   - Historical performance tracking
-
-3. Numerical Stability
-   - Cubic root price impact calculation
-   - High-precision constants (1e6)
-   - Overflow protection
-   - Zero-amount validation
+Custom errors with specific conditions:
+```solidity
+error InsufficientLiquidity();
+error ExcessiveSlippage();
+error SuboptimalPath();
+error MinimumProfitNotMet();
+```
 
 ## Usage Guide
 
-### Four-Way Swap
+### Parameter Encoding
+
+The contract uses an optimized encoding scheme:
+
+```solidity
+// Pool data encoding
+poolData = (feePPM << 160) | poolAddress
+
+// Amount data encoding
+amountData = initialAmount | (expectedAmount << 128)
+```
+
+### Function Calls
+
+1. Four-Way Arbitrage:
 ```solidity
 function fourWaySwap(uint256[4] calldata args) external
 ```
-Optimized for medium-length paths using golden ratio:
-- args[0..2]: Pool addresses with fees
-- args[3]: Initial and expected amounts
 
-### Five-Way Swap
+2. Five-Way Arbitrage:
 ```solidity
 function fiveWaySwap(uint256[5] calldata args) external
 ```
-Optimized for longer paths using dynamic programming:
-- args[0..3]: Pool addresses with fees
-- args[4]: Initial and expected amounts
 
-## Parameter Encoding
+### Risk Parameters
 
-The array structure follows this semantic scheme:
+Configurable via admin functions:
+```solidity
+function updateRiskParams(
+    uint256 _maxTradeVolume,
+    uint256 _minPoolLiquidity,
+    uint256 _maxPriceImpact,
+    uint256 _sandwichProtectionBips
+) external onlyOwner
+```
 
-    args[0..N-1] --> poolData (address + fee)
-    args[N] --> amountData
+## Monitoring and Control
 
-    poolData = (feePPM << 160) | poolAddress
-    amountData = initialAmount | (expectedAmount << 128)
+### Events
 
-Each implementation is optimized for its specific path length with:
-- Path-specific mathematical optimizations
-- Custom safety checks
-- Gas-efficient execution
-- Price impact minimization
+```solidity
+event PoolBlacklisted(address indexed pool, bool blacklisted);
+event RiskParamsUpdated(
+    uint256 maxVolume,
+    uint256 minLiquidity,
+    uint256 maxImpact,
+    uint256 sandwichProtection
+);
+event EmergencyAction(bool paused);
+```
 
-## Admin Functions
+### Admin Functions
 
-- adoptAllowance(): Transfer approved tokens to contract
-- withdrawFunds(): Withdraw all tokens to admin
-- changeAdmin(): Transfer admin rights
-- deactivateContract(): Safely disable contract
+1. Risk Management:
+   - `setPoolBlacklist(address pool, bool blacklisted)`
+   - `updateRiskParams(...)`
+   - `emergencyPause(bool pause)`
 
-## Error Handling
+2. Fund Management:
+   - `adoptAllowance()`
+   - `withdrawFunds()`
+   - `deactivateContract()`
 
-| Message | Condition |
-|--- |--- |
-| `BOFH:SUX2BEU` | Unauthorized call |
-| `BOFH:TRANSFER_FAILED` | Failed token transfer |
-| `BOFH:PAIR_NOT_IN_PATH` | Invalid pool in path |
-| `BOFH:INSUFFICIENT_INPUT_AMOUNT` | Zero balance mid-path |
-| `BOFH:INSUFFICIENT_LIQUIDITY` | Pool has no liquidity |
-| `BOFH:PATH_TOO_SHORT` | Minimum 3 swaps required |
-| `BOFH:GIMMIE_MONEY` | Insufficient contract funds |
-| `BOFH:NON_CIRCULAR_PATH` | Path doesn't return to baseToken |
-| `BOFH:GREED_IS_GOOD` | Minimum profit not met |
-| `BOFH:EXCESSIVE_SLIPPAGE` | Slippage exceeds 1% per swap |
-| `BOFH:SUBOPTIMAL_PATH` | Path efficiency below 50% |
-| `BOFH:NUMERICAL_INSTABILITY` | Math precision error |
+The contract combines advanced mathematical principles with robust safety mechanisms to execute profitable arbitrage while protecting against MEV attacks and maintaining optimal gas efficiency.

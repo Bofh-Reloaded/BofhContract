@@ -42,11 +42,69 @@ contract BofhContract {
     uint256 private constant FIVE_WAY = 5;
     uint256 private constant MAX_SLIPPAGE = PRECISION / 100; // 1%
     uint256 private constant MIN_OPTIMALITY = PRECISION / 2; // 50%
+    uint256 private constant GAS_OVERHEAD_PER_SWAP = 150000; // Estimated gas per swap
+    uint256 private constant MIN_POOL_LIQUIDITY = 1000; // Minimum pool depth
 
     // Mathematical constants
     uint256 private constant GOLDEN_RATIO = 618034; // φ ≈ 0.618034
     uint256 private constant INVERSE_GOLDEN_RATIO = 381966; // 1-φ ≈ 0.381966
     uint256 private constant GOLDEN_RATIO_SQUARED = 381966; // φ2 ≈ 0.381966
+
+    // Risk management and MEV protection
+    mapping(address => bool) public blacklistedPools;
+    uint256 public maxTradeVolume;
+    bool public emergencyPaused;
+    uint256 public minPoolLiquidity;
+    uint256 public maxPriceImpact;
+    uint256 public sandwichProtectionBips;
+    
+    // Events for monitoring
+    event PoolBlacklisted(address indexed pool, bool blacklisted);
+    event RiskParamsUpdated(
+        uint256 maxVolume,
+        uint256 minLiquidity,
+        uint256 maxImpact,
+        uint256 sandwichProtection
+    );
+    event EmergencyAction(bool paused);
+    
+    // Risk management functions
+    function updateRiskParams(
+        uint256 _maxTradeVolume,
+        uint256 _minPoolLiquidity,
+        uint256 _maxPriceImpact,
+        uint256 _sandwichProtectionBips
+    ) external onlyOwner {
+        maxTradeVolume = _maxTradeVolume;
+        minPoolLiquidity = _minPoolLiquidity;
+        maxPriceImpact = _maxPriceImpact;
+        sandwichProtectionBips = _sandwichProtectionBips;
+        
+        emit RiskParamsUpdated(
+            _maxTradeVolume,
+            _minPoolLiquidity,
+            _maxPriceImpact,
+            _sandwichProtectionBips
+        );
+    }
+    
+    function setPoolBlacklist(address pool, bool blacklisted) external onlyOwner {
+        blacklistedPools[pool] = blacklisted;
+        emit PoolBlacklisted(pool, blacklisted);
+    }
+    
+    function emergencyPause(bool pause) external onlyOwner {
+        emergencyPaused = pause;
+        emit EmergencyAction(pause);
+        
+        if (pause) {
+            // Withdraw all funds to admin if pausing
+            uint256 balance = IBEP20(baseToken).balanceOf(address(this));
+            if (balance > 0) {
+                IBEP20(baseToken).transfer(msg.sender, balance);
+            }
+        }
+    }
 
     // Custom errors
     error Unauthorized();
@@ -226,33 +284,75 @@ contract BofhContract {
         return cbrt(impactCubed);
     }
 
-    // Optimized swap execution
+    // Optimized swap execution with MEV protection and gas optimization
     function performSwap(SwapState memory state, uint256 idx, uint256 argsLength) internal returns (SwapState memory) {
-        PoolState memory pool = analyzePool(idx, state.transitToken, state.currentAmount);
+        // Check emergency pause
+        if (emergencyPaused) revert ContractDeactivated();
         
-        if (pool.reserveIn == 0 || pool.reserveOut == 0) revert InsufficientLiquidity();
+        address poolAddress = getPool(idx);
+        // Check blacklist
+        if (blacklistedPools[poolAddress]) revert PairNotInPath();
         
-        // Calculate optimal amounts
-        state.amountInWithFee = calculateOptimalAmountIn(state, pool);
-        uint256 slippage;
-        (state.amountOut, slippage) = calculateOptimalAmountOut(state, pool);
+        PoolState memory poolState = analyzePool(idx, state.transitToken, state.currentAmount);
         
-        state.slippage = slippage;
-        state.cumulativeImpact += slippage;
+        // Enhanced liquidity checks
+        if (poolState.reserveIn < MIN_POOL_LIQUIDITY || poolState.reserveOut < MIN_POOL_LIQUIDITY)
+            revert InsufficientLiquidity();
+            
+        // MEV Protection: Check for sandwich attacks
+        unchecked {
+            uint256 expectedPrice = (poolState.reserveOut * PRECISION) / poolState.reserveIn;
+            uint256 actualPrice = (state.currentAmount * PRECISION) / poolState.reserveIn;
+            uint256 priceDeviation;
+            
+            if (actualPrice > expectedPrice) {
+                priceDeviation = ((actualPrice - expectedPrice) * PRECISION) / expectedPrice;
+            } else {
+                priceDeviation = ((expectedPrice - actualPrice) * PRECISION) / expectedPrice;
+            }
+            
+            if (priceDeviation > sandwichProtectionBips)
+                revert ExcessiveSlippage();
+        }
         
-        if (state.slippage > MAX_SLIPPAGE) revert ExcessiveSlippage();
-        
+        // Gas optimization: Calculate values in unchecked block
+        unchecked {
+            // Calculate optimal amounts
+            state.amountInWithFee = calculateOptimalAmountIn(state, poolState);
+            
+            // Verify trade size
+            if (state.amountInWithFee > maxTradeVolume) revert ExcessiveSlippage();
+            
+            uint256 slippage;
+            (state.amountOut, slippage) = calculateOptimalAmountOut(state, poolState);
+            
+            state.slippage = slippage;
+            state.cumulativeImpact += slippage;
+            
+            // Dynamic slippage threshold based on path position
+            uint256 maxAllowedSlippage = (MAX_SLIPPAGE * (idx + 1)) / argsLength;
+            if (state.slippage > maxAllowedSlippage) revert ExcessiveSlippage();
+            
+            // Calculate minimum profit needed including gas costs
+            uint256 gasUsed = GAS_OVERHEAD_PER_SWAP * (idx + 1);
+            uint256 minProfitRequired = (gasUsed * tx.gasprice * 12) / 10; // 20% buffer
+            
+            if (idx == argsLength - 2 && state.currentAmount <= minProfitRequired)
+                revert MinimumProfitNotMet();
+        }
+
         state.isLastSwap = idx >= (argsLength - 2);
         address beneficiary = state.isLastSwap ? address(this) : getPool(idx + 1);
 
-        IGenericPair(getPool(idx)).swap(
-            pool.sellingToken0 ? 0 : state.amountOut,
-            pool.sellingToken0 ? state.amountOut : 0,
+        // Execute swap with pool state validation
+        IGenericPair(poolAddress).swap(
+            poolState.sellingToken0 ? 0 : state.amountOut,
+            poolState.sellingToken0 ? state.amountOut : 0,
             beneficiary,
             new bytes(0)
         );
 
-        state.transitToken = pool.tokenOut;
+        state.transitToken = poolState.tokenOut;
         state.currentAmount = state.amountOut;
         
         return state;
