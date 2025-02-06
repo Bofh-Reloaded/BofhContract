@@ -185,3 +185,5 @@ cython_debug/
 
 *.bin
 *.abi
+
+node_modules
