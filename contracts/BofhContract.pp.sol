@@ -87,17 +87,49 @@
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-#define OPT_BREAK_EARLY 0x01 // Debug option: break and return before performing a swap
+// IMPORTANT: using Solidity 0.8.9+. Some calldata optimizations are buggy in pre-0.8.9 compilers
+pragma solidity >= 0.8.10;
 
+#define OPT_BREAK_EARLY 0x01 // Debug option: break and return before performing a swap
 
 #if !defined(NO_DEBUG_CODE)
 #  define NO_DEBUG_CODE 0
 #endif
 
+// Constants for mathematical precision and optimization
+#define PRECISION 1000000
+#define GOLDEN_RATIO 618034 // φ ≈ 0.618034
+#define GOLDEN_RATIO_SQUARED 381966 // φ2 ≈ 0.381966
+#define INVERSE_GOLDEN_RATIO 381966 // 1-φ ≈ 0.381966
+#define MAX_SLIPPAGE 10000 // 1%
 
+// Advanced path optimization macros
+#define optimize_four_way_amount(amount) \
+    ((amount * GOLDEN_RATIO) / PRECISION)
 
-// IMPORTANT: using Solidity 0.8.9+. Some calldata optimizations are buggy in pre-0.8.9 compilers
-pragma solidity >= 0.8.10;
+#define optimize_five_way_amount(amount) \
+    ((amount * GOLDEN_RATIO_SQUARED) / PRECISION)
+
+#define validate_geometric_mean(prev_amount, current_amount) \
+    uint256 expectedOutput = sqrt(prev_amount * current_amount); \
+    if (current_amount < (expectedOutput * GOLDEN_RATIO) / PRECISION) \
+        revert("BOFH:SUBOPTIMAL_PATH");
+
+#define calculate_dynamic_tolerance(i) \
+    (PRECISION + ((i + 1) * INVERSE_GOLDEN_RATIO) / 5)
+
+// Deflationary token support macros
+#define measure_transfer_amount(token, beneficiary, amount) \
+    uint256 prevAmount = IBEP20(token).balanceOf(beneficiary); \
+    safeTransfer(beneficiary, amount); \
+    uint256 nextAmount = IBEP20(token).balanceOf(beneficiary); \
+    amount = nextAmount - prevAmount;
+
+#define measure_swap_amount(token, beneficiary, amount0Out, amount1Out) \
+    uint256 prevAmount = IBEP20(token).balanceOf(beneficiary); \
+    pair.swap(amount0Out, amount1Out, beneficiary, new bytes(0)); \
+    uint256 nextAmount = IBEP20(token).balanceOf(beneficiary); \
+    currentAmount = nextAmount - prevAmount;
 
 
 // Minimal functionality of the BSC token we are going to use
@@ -391,6 +423,28 @@ contract BofhContract
 #define safe_transfer_next_pool_deflationary_check_end \
         currentAmount = IBEP20(tokenOut).balanceOf(swapBeneficiary) - prevAmount;
 
+
+// Constants for mathematical precision and optimization
+#define PRECISION 1000000
+#define GOLDEN_RATIO 618034 // φ ≈ 0.618034
+#define GOLDEN_RATIO_SQUARED 381966 // φ2 ≈ 0.381966
+#define INVERSE_GOLDEN_RATIO 381966 // 1-φ ≈ 0.381966
+#define MAX_SLIPPAGE 10000 // 1%
+
+// Advanced path optimization macros
+#define optimize_four_way_amount(amount) \
+    ((amount * GOLDEN_RATIO) / PRECISION)
+
+#define optimize_five_way_amount(amount) \
+    ((amount * GOLDEN_RATIO_SQUARED) / PRECISION)
+
+#define validate_geometric_mean(prev_amount, current_amount) \
+    uint256 expectedOutput = sqrt(prev_amount * current_amount); \
+    if (current_amount < (expectedOutput * GOLDEN_RATIO) / PRECISION) \
+        revert("BOFH:SUBOPTIMAL_PATH");
+
+#define calculate_dynamic_tolerance(i) \
+    (PRECISION + ((i + 1) * INVERSE_GOLDEN_RATIO) / 5)
 
 #define code_multiswap_internal(function_name, return_type, alloc_status, safe_transfer_1st_pool, safe_transfer_next_pool_begin, safe_transfer_next_pool_end, forward_status_param, status_snapshot, trailer_return_code) \
     /* Main entry-point. Called from external overloads (see later) */                                        \

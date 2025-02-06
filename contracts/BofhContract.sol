@@ -284,7 +284,7 @@ contract BofhContract {
         return cbrt(impactCubed);
     }
 
-    // Optimized swap execution with MEV protection and gas optimization
+    // Optimized swap execution with MEV protection, gas optimization, and deflationary token support
     function performSwap(SwapState memory state, uint256 idx, uint256 argsLength) internal returns (SwapState memory) {
         // Check emergency pause
         if (emergencyPaused) revert ContractDeactivated();
@@ -344,6 +344,9 @@ contract BofhContract {
         state.isLastSwap = idx >= (argsLength - 2);
         address beneficiary = state.isLastSwap ? address(this) : getPool(idx + 1);
 
+        // Handle deflationary tokens by measuring actual amounts
+        uint256 prevAmount = IBEP20(poolState.tokenOut).balanceOf(beneficiary);
+
         // Execute swap with pool state validation
         IGenericPair(poolAddress).swap(
             poolState.sellingToken0 ? 0 : state.amountOut,
@@ -352,8 +355,10 @@ contract BofhContract {
             new bytes(0)
         );
 
+        // Calculate actual amount received for deflationary tokens
+        uint256 nextAmount = IBEP20(poolState.tokenOut).balanceOf(beneficiary);
+        state.currentAmount = nextAmount - prevAmount;
         state.transitToken = poolState.tokenOut;
-        state.currentAmount = state.amountOut;
         
         return state;
     }
@@ -405,10 +410,13 @@ contract BofhContract {
         if (state.currentAmount > IBEP20(baseToken).balanceOf(address(this)))
             revert InsufficientFunds();
 
-        // Apply golden ratio optimization
+        // Apply golden ratio optimization with deflationary token support
         uint256 optimalAmount = (state.currentAmount * GOLDEN_RATIO) / PRECISION;
-        safeTransfer(address(uint160(args[0])), optimalAmount);
-        state.currentAmount = optimalAmount;
+        address firstPool = address(uint160(args[0]));
+        uint256 prevAmount = IBEP20(baseToken).balanceOf(firstPool);
+        safeTransfer(firstPool, optimalAmount);
+        uint256 nextAmount = IBEP20(baseToken).balanceOf(firstPool);
+        state.currentAmount = nextAmount - prevAmount;
 
         // Execute optimized swaps
         for (uint256 i = 0; i < 3;) {
@@ -448,10 +456,13 @@ contract BofhContract {
         if (state.currentAmount > IBEP20(baseToken).balanceOf(address(this)))
             revert InsufficientFunds();
 
-        // Apply golden ratio squared optimization
+        // Apply golden ratio squared optimization with deflationary token support
         uint256 optimalAmount = (state.currentAmount * GOLDEN_RATIO_SQUARED) / PRECISION;
-        safeTransfer(address(uint160(args[0])), optimalAmount);
-        state.currentAmount = optimalAmount;
+        address firstPool = address(uint160(args[0]));
+        uint256 prevAmount = IBEP20(baseToken).balanceOf(firstPool);
+        safeTransfer(firstPool, optimalAmount);
+        uint256 nextAmount = IBEP20(baseToken).balanceOf(firstPool);
+        state.currentAmount = nextAmount - prevAmount;
 
         // Dynamic programming array for historical amounts
         uint256[] memory historicalAmounts = new uint256[](4);

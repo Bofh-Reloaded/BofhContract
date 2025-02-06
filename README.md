@@ -1,6 +1,6 @@
 # BofhContract - Advanced DEX Arbitrage System
 
-BofhContract implements a sophisticated arbitrage system for decentralized exchanges (DEX) using advanced mathematical principles and MEV protection mechanisms.
+BofhContract implements a sophisticated arbitrage system for decentralized exchanges (DEX) using advanced mathematical principles, MEV protection mechanisms, and deflationary token support.
 
 ## Mathematical Foundations
 
@@ -88,6 +88,34 @@ For 5-way paths, the contract uses dynamic programming to optimize execution:
    ```
    - Adapts to path position
    - Uses inverse golden ratio for scaling
+
+### 5. Deflationary Token Support
+
+The contract implements comprehensive support for deflationary tokens:
+
+1. Balance Tracking:
+   ```solidity
+   uint256 prevAmount = IBEP20(token).balanceOf(beneficiary);
+   safeTransfer(beneficiary, amount);
+   uint256 nextAmount = IBEP20(token).balanceOf(beneficiary);
+   actualAmount = nextAmount - prevAmount;
+   ```
+   - Accurate amount calculation
+   - Handles fee-on-transfer tokens
+   - Supports reflection tokens
+
+2. Integration with Path Optimization:
+   ```solidity
+   // Apply golden ratio optimization with deflationary support
+   uint256 optimalAmount = (state.currentAmount * GOLDEN_RATIO) / PRECISION;
+   uint256 prevAmount = IBEP20(baseToken).balanceOf(firstPool);
+   safeTransfer(firstPool, optimalAmount);
+   uint256 nextAmount = IBEP20(baseToken).balanceOf(firstPool);
+   state.currentAmount = nextAmount - prevAmount;
+   ```
+   - Maintains optimal ratios
+   - Adjusts for token mechanics
+   - Preserves path efficiency
 
 ## Advanced Features
 
@@ -179,6 +207,25 @@ error SuboptimalPath();
 error MinimumProfitNotMet();
 ```
 
+### 3. Preprocessor Optimizations
+
+The contract is available in three variants:
+
+1. BofhContract.sol:
+   - Standard implementation
+   - Full features and optimizations
+   - Production-ready
+
+2. BofhContract.pp.sol:
+   - Preprocessor-based implementation
+   - Debug capabilities
+   - Development and testing
+
+3. BofhContract-nodebug.sol:
+   - Optimized production version
+   - No debug overhead
+   - Maximum gas efficiency
+
 ## Usage Guide
 
 ### Parameter Encoding
@@ -244,4 +291,4 @@ event EmergencyAction(bool paused);
    - `withdrawFunds()`
    - `deactivateContract()`
 
-The contract combines advanced mathematical principles with robust safety mechanisms to execute profitable arbitrage while protecting against MEV attacks and maintaining optimal gas efficiency.
+The contract combines advanced mathematical principles with robust safety mechanisms to execute profitable arbitrage while protecting against MEV attacks and maintaining optimal gas efficiency. It provides comprehensive support for deflationary tokens and offers multiple deployment options through preprocessor-based optimizations.
