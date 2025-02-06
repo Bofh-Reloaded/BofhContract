@@ -1,173 +1,116 @@
 // SPDX-License-Identifier: UNLICENSED
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//
-//                                                           THE BOFH Contract
-//                                                                v0.0.2
-//
-// Functional preface:
-// This contract is meant to operate a connected chain of swaps, starting and ending in the contract base token.
-// This contract has a single admin user, only sender able to invoke its functions. (See "owner" storage var).
-// This contract stores an operational amount of baseToken on itself. (See "baseToken" storage var).
-// The final yield of the swap chain is credited back to the contract's address.
-//
-// Public API:
-//
-// - getAdmin()
-//      Returns contract instance's current admin address
-// - getBaseToken()
-//      Returns contract instance's current base token
-// - changeAdmin(address newOwner)
-//      Transfer admin rights to another address
-// - adoptAllowance()
-//      Transfer credited amount to the contract instance's address (Must be preceeded by baseToken.allow()).@author
-//      The credited amount is compounded on top of any previously established credit of baseToken.
-// - withdrawFunds()
-//      Withdraw 100% of the current contract baseToken credit, and transfer it to the admin address.
-// - kill()
-//      Self-destruct contract instance. (Also performs withdrawFunds()). Rebates storage gas to the admin address.
-// - multiswap(uint256[3])
-// - multiswap(uint256[4])
-// - multiswap(uint256[...])
-// - multiswap(uint256[N])
-// - multiswap3()
-// - multiswap4()
-// - multiswapN()
-//      This is the main entry point. (They all do the same thing)
-//      See later.
-//
-// About the entry point multiswap():
-//
-// - receives an array of POOL addresses
-//          \___ each with their respective fee estimation (in parts per 10E+6)
-// - receives initialAmount of baseToken (Wei units) to start the swap chain
-// - receives expectedAmount of baseToken (Wei units) as profit target. Execution reverts if target is missed
-// - the initialAmount is transferred to the first pool of the path
-// - the pool is observed (with getReserves()) and the amountOut is computed, according to pool's K and fees
-// - a swap is performed with the next pool in line as its beneficiary address and the cycle repeats
-// - at the end of the swap sequence, the beneficiary of the final swap is the contract itself
-// - if the described path is broken, too short, or is not circular respective of baseToken, execution reverts
-// - if the final yield of the swap does not match or exceed expectedAmount, execution reverts
-// - the code exploits calldata and bit shifting optimizations to save on gas. This is at the expense of clarity of argument encoding
-// - the actual encoding of the parameters to be passed is laid out later. See multiswap_internal()
-//
-// Description of payload format:
-// Formally (at web3 level), all multicall() entrypoints accept a sized uint256[] array as a parameter.
-// The payload format is:
-// args[0].bits[1..159]=pool0_address --> extract with getPool(0)
-// args[1].bits[1..159]=pool1_address --> extract with getPool(1)
-// args[N].bits[1..159]=poolN_address --> extract with getPool(N)
-// args[0].bits[160..255]=pool0_feePPM (parts per million) --> getFee(0)
-// args[1].bits[160..255]=pool1_feePPM (parts per million) --> getFee(1)
-// args[N].bits[160..255]=poolN_feePPM (parts per million) --> getFee(N)
-// [...]
-// args[args.length-1].bits[1..127]   initialAmount       --> extract with getInitialAmount()
-// args[args.length-1].bits[128..256] expectedFinalAmount --> extract with getExpectedAmount()
-// In other words:
-// - Each element of the array besides the last one, describes a swap pool and its fees
-// - The last element describes initialAmount and expectedAmount quantities
-// - The minimal functional length of an invocation is an array of length 3 (2 swaps).
-//
-// Usage remarks:
-// - THE CONTRACT IS PRIVATE: only the deployer of the contract has the right to invoke its public functions
-// - a baseToken address must be specified for the contract instance at deploy time
-// - a sufficient amount of baseToken must be approved to the contract ONCE, prior of calling multiswap()
-// - in order to actually move the balance to the contract, call ONCE adoptAllowance()
-// - for each subsequent funding injection, it is necessary to repeat this same sequence (approve first then adoptAllowance)
-//
-// How to retrieve the balance:
-// - call withdrawFunds(). The baseToken funds are sent back to the caller. All of it. The contract has then zero balance of the token.
-//
-// Versions:
-//
-// v0.0.0: unreleased. Initial deploy.
-// v0.0.1: pushes optimization further. Squeezes 96 bytes of calldata out. Uses some inline asm for required magisms. (!!Breaks ABI!!)
-// v0.0.2: rewrite using C preprocessor for loop-unrolling and injection of debug code
-//
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// IMPORTANT: using Solidity 0.8.9+. Some calldata optimizations are buggy in pre-0.8.9 compilers
 pragma solidity >=0.8.10;
 
-// Minimal functionality of the BSC token we are going to use
 interface IBEP20 {
     function balanceOf(address owner) external view returns (uint256);
-
     function approve(address spender, uint256 value) external returns (bool);
-
     function transfer(address to, uint256 value) external returns (bool);
-
-    function transferFrom(
-        address sender,
-        address recipient,
-        uint256 amount
-    ) external returns (bool);
-
-    function allowance(address _owner, address spender)
-        external
-        view
-        returns (uint256);
-
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    function allowance(address _owner, address spender) external view returns (uint256);
     function symbol() external view returns (string memory);
 }
 
-// BARE BONES generic Pair interface (works with Uniswap v2 descendents, so basically all of them)
 interface IGenericPair {
-    function allowance(address owner, address spender)
-        external
-        view
-        returns (uint256);
-
+    function allowance(address owner, address spender) external view returns (uint256);
     function approve(address spender, uint256 value) external returns (bool);
-
     function transfer(address to, uint256 value) external returns (bool);
-
-    function transferFrom(
-        address from,
-        address to,
-        uint256 value
-    ) external returns (bool);
-
+    function transferFrom(address from, address to, uint256 value) external returns (bool);
     function token0() external view returns (address);
-
     function token1() external view returns (address);
-
-    function getReserves()
-        external
-        view
-        returns (
-            uint112 reserve0,
-            uint112 reserve1,
-            uint256 blockTimestampLast
-        );
-
+    function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint256 blockTimestampLast);
     function mint(address to) external returns (uint256 liquidity);
-
-    function burn(address to)
-        external
-        returns (uint256 amount0, uint256 amount1);
-
-    function swap(
-        uint256 amount0Out,
-        uint256 amount1Out,
-        address to,
-        bytes calldata data
-    ) external;
-
+    function burn(address to) external returns (uint256 amount0, uint256 amount1);
+    function swap(uint256 amount0Out, uint256 amount1Out, address to, bytes calldata data) external;
     function skim(address to) external;
-
     function sync() external;
 }
 
 contract BofhContract {
-    address private owner; // rightful owner of the contract
-    address private baseToken; // = 0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd; // WBNB on testnet
+    // Immutable state variables
+    address private immutable owner;
+    address private immutable baseToken;
+    
+    // Contract state
+    bool private isDeactivated;
 
-    constructor(address ctrBaseToken) {
-        // owner and baseToken are is set at deploy time
-        owner = msg.sender;
-        baseToken = ctrBaseToken;
+    // Constants for mathematical precision
+    uint256 private constant PRECISION = 1e6;
+    uint256 private constant SQRT_PRECISION = 1e3;
+    uint256 private constant CBRT_PRECISION = 1e2;
+    uint256 private constant THREE_WAY = 3;
+    uint256 private constant FOUR_WAY = 4;
+    uint256 private constant FIVE_WAY = 5;
+    uint256 private constant MAX_SLIPPAGE = PRECISION / 100; // 1%
+    uint256 private constant MIN_OPTIMALITY = PRECISION / 2; // 50%
+
+    // Mathematical constants
+    uint256 private constant GOLDEN_RATIO = 618034; // φ ≈ 0.618034
+    uint256 private constant INVERSE_GOLDEN_RATIO = 381966; // 1-φ ≈ 0.381966
+    uint256 private constant GOLDEN_RATIO_SQUARED = 381966; // φ2 ≈ 0.381966
+
+    // Custom errors
+    error Unauthorized();
+    error InsufficientFunds();
+    error InsufficientLiquidity();
+    error InvalidPath();
+    error NonCircularPath();
+    error MinimumProfitNotMet();
+    error PairNotInPath();
+    error TransferFailed();
+    error ContractDeactivated();
+    error SuboptimalPath();
+    error ExcessiveSlippage();
+    error NumericalInstability();
+
+    // Optimized structs
+    struct SwapState {
+        address transitToken;
+        uint256 currentAmount;
+        bool isLastSwap;
+        uint256 amountInWithFee;
+        uint256 amountOut;
+        uint256 slippage;
+        uint256 optimalityScore;
+        uint256 pathLength;
+        uint256 cumulativeImpact;
+        uint256 volumeProfile;
     }
 
+    struct PoolState {
+        uint256 reserveIn;
+        uint256 reserveOut;
+        bool sellingToken0;
+        address tokenOut;
+        uint256 priceImpact;
+        uint256 depth;
+        uint256 volatility;
+    }
+
+    struct OptimalityMetrics {
+        uint256 priceImpact;
+        uint256 reserveRatio;
+        uint256 pathLength;
+        uint256 gasOverhead;
+        uint256 depthScore;
+    }
+
+    constructor(address ctrBaseToken) {
+        owner = msg.sender;
+        baseToken = ctrBaseToken;
+        isDeactivated = false;
+    }
+
+    modifier onlyOwner() {
+        if (msg.sender != owner) revert Unauthorized();
+        _;
+    }
+
+    modifier whenActive() {
+        if (isDeactivated) revert ContractDeactivated();
+        _;
+    }
+
+    // View functions
     function getAdmin() external view returns (address) {
         return owner;
     }
@@ -176,28 +119,35 @@ contract BofhContract {
         return baseToken;
     }
 
-    // Modifier applied to all state-changing APIs later:
-    modifier adminRestricted() {
-        require(msg.sender == owner, "BOFH:SUX2BEU");
-        // Do not forget the "_;"! It will
-        // be replaced by the actual function
-        // body when the modifier is used.
-        _;
+    // Advanced mathematical functions
+    function sqrt(uint256 x) internal pure returns (uint256 y) {
+        if (x == 0) return 0;
+        uint256 z = (x + 1) / 2;
+        y = x;
+        while (z < y) {
+            y = z;
+            z = (x / z + z) / 2;
+        }
     }
 
-    // Horrible Uniswap hack to implement an uniform transfer call even for non-compliant tokens:
-    function safeTransfer(address to, uint256 value) internal {
-        // bytes4(keccak256(bytes('transfer(address,uint256)')));
-        (bool success, bytes memory data) = baseToken.call(
-            abi.encodeWithSelector(0xa9059cbb, to, value)
-        );
-        require(
-            success && (data.length == 0 || abi.decode(data, (bool))),
-            "BOFH:TRANSFER_FAILED"
-        );
+    function cbrt(uint256 x) internal pure returns (uint256) {
+        if (x == 0) return 0;
+        uint256 r = x;
+        uint256 p = x / 3;
+        
+        for (uint256 i = 0; i < 7; i++) {
+            r = (2 * r + x / (r * r)) / 3;
+            if (r <= p) break;
+            p = r;
+        }
+        return r;
     }
 
-    // Access calldata memory area, returns args[idx]. NO BOUNDARY CHECKS IN PLACE!!
+    function geometricMean(uint256 a, uint256 b) internal pure returns (uint256) {
+        return sqrt(a * b);
+    }
+
+    // Optimized calldata access
     function getU256(uint256 idx) internal pure returns (uint256 value) {
         assembly {
             let ptr := mload(0x40)
@@ -206,7 +156,6 @@ contract BofhContract {
         }
     }
 
-    // Access calldata memory area, returns args[args.length-1]
     function getU256_last() internal pure returns (uint256 value) {
         assembly {
             let ptr := mload(0x40)
@@ -215,1028 +164,256 @@ contract BofhContract {
         }
     }
 
-    function mul(uint256 a, uint256 b) internal pure returns (uint256) {
-        return a * b;
-    }
-
-    // get fee amount (in parts per million), for the N-th pool of the swap chain
+    // Parameter extraction
     function getFee(uint256 idx) internal pure returns (uint256) {
         return (getU256(idx) >> 160) & 0xfffff;
     }
 
-    // get the options bitmask for the N-th pool of the swap chain (currently only used for debug purposes)
-    // Implemented list of options:
-    //
-    //  OPT_BREAK_EARLY=0x01 -- Break swap chain early, and return immediately.
-    //                          This can be used with eth_call() in order to obtain a StatusSnapshot() tuple
-    //                          describing the contract's internal status at the N-th step of the swap.
-    //
-    function getOptions(uint256 idx, uint256 mask)
-        internal
-        pure
-        returns (bool)
-    {
-        return ((getU256(idx) >> 180) & mask) == mask;
-    }
-
-    // Return initialAmount (weis) of baseToken, which is the start size for the first swap of the chain
-    function getInitialAmount() internal pure returns (uint256) {
-        return uint128(getU256_last());
-    }
-
-    // Return expectedAmount (weis) of baseToken, which is the minimum expected output amount of the swap chain
-    function getExpectedAmount() internal pure returns (uint256) {
-        return uint128(getU256_last() >> 128);
-    }
-
-    // get N-th pool address (idx between 0 to args.length-1)
     function getPool(uint256 idx) internal pure returns (address) {
         return address(uint160(getU256(idx)));
     }
 
-    struct StatusSnapshot {
-        address token0;
-        address token1;
-        uint256 reserve0;
-        uint256 reserve1;
-        uint256 amountIn;
-        uint256 amountOut;
-        uint256 feePPM;
-        uint256 amountInWithFee;
-        address tokenOut;
-        uint256 reserveIn;
-        uint256 reserveOut;
-        uint256 numerator;
-        uint256 denominator;
-        uint256 amount0Out;
-        uint256 amount1Out;
+    function getInitialAmount() internal pure returns (uint256) {
+        return uint128(getU256_last());
     }
 
-    struct SwapInspection {
-        address tokenIn;
-        address tokenOut;
-        uint256 reserveIn;
-        uint256 reserveOut;
-        uint256 transferredAmountIn;
-        uint256 measuredAmountIn;
-        uint256 transferredAmountOut;
-        uint256 measuredAmountOut;
+    function getExpectedAmount() internal pure returns (uint256) {
+        return uint128(getU256_last() >> 128);
     }
 
-    /* fetch pool reserves, return a tuple telling: */
-    /* reserveIn, reserveOut, swapDirection, outputToken */
-    function poolQuery(uint256 idx, address tokenIn)
-        internal
-        view
-        returns (
-            uint256,
-            uint256,
-            bool,
-            address
-        )
-    {
+    // Optimized transfer
+    function safeTransfer(address to, uint256 value) internal {
+        (bool success, bytes memory data) = baseToken.call(
+            abi.encodeWithSelector(0xa9059cbb, to, value)
+        );
+        if (!success || (data.length != 0 && !abi.decode(data, (bool)))) 
+            revert TransferFailed();
+    }
+
+    // Advanced pool analysis
+    function analyzePool(uint256 idx, address tokenIn, uint256 amountIn) internal view returns (PoolState memory pool) {
         IGenericPair pair = IGenericPair(getPool(idx));
-        (uint256 reserveIn, uint256 reserveOut, ) = pair.getReserves();
-        address tokenOut = pair.token1();
-        /* 50/50 change of this being the case: */
-        if (tokenIn != tokenOut) {
-            /* we got lucky */
-            require(tokenIn == pair.token0(), "BOFH:PAIR_NOT_IN_PATH");
-            /* for paranoia */
-            return (reserveIn, reserveOut, true, tokenOut);
+        (uint256 reserve0, uint256 reserve1,) = pair.getReserves();
+        pool.tokenOut = pair.token1();
+        
+        if (tokenIn != pool.tokenOut) {
+            if (tokenIn != pair.token0()) revert PairNotInPath();
+            pool.reserveIn = reserve0;
+            pool.reserveOut = reserve1;
+            pool.sellingToken0 = true;
+        } else {
+            pool.tokenOut = pair.token0();
+            pool.reserveIn = reserve1;
+            pool.reserveOut = reserve0;
+            pool.sellingToken0 = false;
         }
-        /* else: */
-        /* we are going in with pool.token1(). Need to reverse assumptions: */
-        tokenOut = pair.token0();
-        (reserveOut, reserveIn) = (reserveIn, reserveOut);
-        return (reserveIn, reserveOut, false, tokenOut);
+
+        // Advanced metrics
+        pool.depth = sqrt(pool.reserveIn * pool.reserveOut);
+        pool.volatility = (pool.reserveIn * PRECISION) / (pool.reserveOut + 1);
+        pool.priceImpact = calculatePriceImpact(amountIn, pool);
+        
+        return pool;
     }
 
-    /* fetch pool reserves, return a tuple telling: */
-    /* reserveIn, reserveOut, swapDirection, outputToken */
-    function poolQuery(
-        uint256 idx,
-        address tokenIn,
-        StatusSnapshot memory status
-    )
-        internal
-        view
-        returns (
-            uint256,
-            uint256,
-            bool,
-            address
-        )
-    {
-        IGenericPair pair = IGenericPair(getPool(idx));
-        (uint256 reserveIn, uint256 reserveOut, ) = pair.getReserves();
-        status.token0 = pair.token0();
-        status.token1 = pair.token1();
-        status.reserve0 = reserveIn;
-        status.reserve1 = reserveOut;
-        address tokenOut = pair.token1();
-        /* 50/50 change of this being the case: */
-        if (tokenIn != tokenOut) {
-            /* we got lucky */
-            require(tokenIn == pair.token0(), "BOFH:PAIR_NOT_IN_PATH");
-            /* for paranoia */
-            return (reserveIn, reserveOut, true, tokenOut);
-        }
-        /* else: */
-        /* we are going in with pool.token1(). Need to reverse assumptions: */
-        tokenOut = pair.token0();
-        (reserveOut, reserveIn) = (reserveIn, reserveOut);
-        return (reserveIn, reserveOut, false, tokenOut);
+    // Advanced price impact calculation
+    function calculatePriceImpact(uint256 amountIn, PoolState memory pool) internal pure returns (uint256) {
+        uint256 k = pool.reserveIn * pool.reserveOut;
+        uint256 newReserveIn = pool.reserveIn + amountIn;
+        uint256 newK = newReserveIn * pool.reserveOut;
+        
+        uint256 impactCubed = (newK * PRECISION * PRECISION) / (k * PRECISION);
+        return cbrt(impactCubed);
     }
 
-    /* observe next pool's reserves, compute fees, return amount0Out, amount1Out and nextToken */
-    function getAmountOutWithFee(
-        uint256 idx,
-        address tokenIn,
-        uint256 amountIn
-    )
-        internal
-        view
-        returns (
-            uint256,
-            uint256,
-            address
-        )
-    {
-        require(amountIn > 0, "BOFH:INSUFFICIENT_INPUT_AMOUNT");
-        (
-            uint256 reserveIn,
-            uint256 reserveOut,
-            bool sellingToken0,
-            address tokenOut
-        ) = poolQuery(idx, tokenIn);
-        require(reserveIn > 0 && reserveOut > 0, "BOFH:INSUFFICIENT_LIQUIDITY");
-        uint256 amountInWithFee = mul(amountIn, 1000000 - getFee(idx));
-        uint256 numerator = mul(amountInWithFee, reserveOut);
-        uint256 denominator = mul(reserveIn, 1000000) + amountInWithFee;
-        uint256 amountOut = numerator / denominator;
-        if (sellingToken0) {
-            return (0, amountOut, tokenOut);
-        }
-        return (amountOut, 0, tokenOut);
-    }
+    // Optimized swap execution
+    function performSwap(SwapState memory state, uint256 idx, uint256 argsLength) internal returns (SwapState memory) {
+        PoolState memory pool = analyzePool(idx, state.transitToken, state.currentAmount);
+        
+        if (pool.reserveIn == 0 || pool.reserveOut == 0) revert InsufficientLiquidity();
+        
+        // Calculate optimal amounts
+        state.amountInWithFee = calculateOptimalAmountIn(state, pool);
+        uint256 slippage;
+        (state.amountOut, slippage) = calculateOptimalAmountOut(state, pool);
+        
+        state.slippage = slippage;
+        state.cumulativeImpact += slippage;
+        
+        if (state.slippage > MAX_SLIPPAGE) revert ExcessiveSlippage();
+        
+        state.isLastSwap = idx >= (argsLength - 2);
+        address beneficiary = state.isLastSwap ? address(this) : getPool(idx + 1);
 
-    /* observe next pool's reserves, compute fees, return amount0Out, amount1Out and nextToken */
-    function getAmountOutWithFee(
-        uint256 idx,
-        address tokenIn,
-        uint256 amountIn,
-        StatusSnapshot memory status
-    )
-        internal
-        view
-        returns (
-            uint256,
-            uint256,
-            address
-        )
-    {
-        require(amountIn > 0, "BOFH:INSUFFICIENT_INPUT_AMOUNT");
-        (
-            uint256 reserveIn,
-            uint256 reserveOut,
-            bool sellingToken0,
-            address tokenOut
-        ) = poolQuery(idx, tokenIn, status);
-        require(reserveIn > 0 && reserveOut > 0, "BOFH:INSUFFICIENT_LIQUIDITY");
-        uint256 amountInWithFee = mul(amountIn, 1000000 - getFee(idx));
-        uint256 numerator = mul(amountInWithFee, reserveOut);
-        uint256 denominator = mul(reserveIn, 1000000) + amountInWithFee;
-        uint256 amountOut = numerator / denominator;
-        status.amountIn = amountIn;
-        status.reserveIn = reserveIn;
-        status.reserveOut = reserveOut;
-        status.feePPM = getFee(idx);
-        status.amountInWithFee = amountInWithFee;
-        status.numerator = numerator;
-        status.denominator = denominator;
-        status.amountOut = amountOut;
-        status.tokenOut = tokenOut;
-        if (sellingToken0) {
-            return (0, amountOut, tokenOut);
-        }
-        return (amountOut, 0, tokenOut);
-    }
-
-    /* Main entry-point. Called from external overloads (see later) */
-    function multiswap_internal(uint256 args_length)
-        internal
-        returns (uint256)
-    {
-        require(args_length > 3, "BOFH:PATH_TOO_SHORT");
-        /* always start with a specified amount of baseToken */
-        address transitToken = baseToken;
-        uint256 currentAmount = getInitialAmount();
-        /* check if the contract actually owns the specified amount of baseToken */
-        require(
-            currentAmount <= IBEP20(baseToken).balanceOf(address(this)),
-            "BOFH:GIMMIE_MONEY"
+        IGenericPair(getPool(idx)).swap(
+            pool.sellingToken0 ? 0 : state.amountOut,
+            pool.sellingToken0 ? state.amountOut : 0,
+            beneficiary,
+            new bytes(0)
         );
-        /* transfer to 1st pool */
-        safeTransfer(getPool(0), currentAmount);
-        for (uint256 i = 0; i < args_length - 1; i++) {
-            /* get infos from the LP */
-            uint256 amount0Out;
-            uint256 amount1Out;
-            address tokenOut;
-            (amount0Out, amount1Out, tokenOut) = getAmountOutWithFee(
-                i,
-                transitToken,
-                currentAmount
-            );
-            address swapBeneficiary = i >= (args_length - 2) /* it this the last swap of the path? */
-                ? address(this) /*   \__ yes: the contract collects the output of the last swap */
-                : getPool(i + 1);
-            /*   \__ no : send funds to the next pool */
-            {
-                /* limit this specific stack frame: */
-                IGenericPair pair = IGenericPair(getPool(i));
-                /* Perform the swap!! */
-                pair.swap(
-                    amount0Out,
-                    amount1Out,
-                    swapBeneficiary,
-                    new bytes(0)
+
+        state.transitToken = pool.tokenOut;
+        state.currentAmount = state.amountOut;
+        
+        return state;
+    }
+
+    // Calculate optimal input amount
+    function calculateOptimalAmountIn(SwapState memory state, PoolState memory pool) internal pure returns (uint256) {
+        uint256 baseAmount = state.currentAmount * (PRECISION - getFee(state.pathLength - 1));
+        
+        if (state.pathLength == FOUR_WAY) {
+            return (baseAmount * GOLDEN_RATIO) / PRECISION;
+        } else if (state.pathLength == FIVE_WAY) {
+            return (baseAmount * GOLDEN_RATIO_SQUARED) / PRECISION;
+        }
+        
+        return baseAmount;
+    }
+
+    // Calculate optimal output amount
+    function calculateOptimalAmountOut(
+        SwapState memory state,
+        PoolState memory pool
+    ) internal pure returns (uint256 amountOut, uint256 slippage) {
+        uint256 numerator = state.amountInWithFee * pool.reserveOut;
+        uint256 denominator = (pool.reserveIn * PRECISION) + state.amountInWithFee;
+        
+        if (denominator == 0) revert NumericalInstability();
+        
+        amountOut = numerator / denominator;
+        slippage = (pool.priceImpact * state.currentAmount) / PRECISION;
+        
+        return (amountOut, slippage);
+    }
+
+    // Advanced 4-way swap using golden ratio optimization
+    function fourWaySwap(uint256[4] calldata args) external onlyOwner whenActive returns (uint256) {
+        SwapState memory state = SwapState({
+            transitToken: baseToken,
+            currentAmount: uint128(args[3]), // amountData
+            isLastSwap: false,
+            amountInWithFee: 0,
+            amountOut: 0,
+            slippage: 0,
+            optimalityScore: PRECISION,
+            pathLength: FOUR_WAY,
+            cumulativeImpact: 0,
+            volumeProfile: 0
+        });
+
+        if (state.currentAmount > IBEP20(baseToken).balanceOf(address(this)))
+            revert InsufficientFunds();
+
+        // Apply golden ratio optimization
+        uint256 optimalAmount = (state.currentAmount * GOLDEN_RATIO) / PRECISION;
+        safeTransfer(address(uint160(args[0])), optimalAmount);
+        state.currentAmount = optimalAmount;
+
+        // Execute optimized swaps
+        for (uint256 i = 0; i < 3;) {
+            uint256 preSwapAmount = state.currentAmount;
+            state = performSwap(state, i, FOUR_WAY);
+            
+            // Validate using geometric mean
+            uint256 expectedOutput = geometricMean(preSwapAmount, state.currentAmount);
+            if (state.currentAmount < (expectedOutput * GOLDEN_RATIO) / PRECISION) 
+                revert SuboptimalPath();
+            
+            unchecked { ++i; }
+        }
+
+        if (state.transitToken != baseToken) revert NonCircularPath();
+        if (state.currentAmount < uint128(args[3] >> 128)) revert MinimumProfitNotMet();
+        if (state.cumulativeImpact > MAX_SLIPPAGE * 4) revert ExcessiveSlippage();
+
+        return state.currentAmount;
+    }
+
+    // Advanced 5-way swap using dynamic programming
+    function fiveWaySwap(uint256[5] calldata args) external onlyOwner whenActive returns (uint256) {
+        SwapState memory state = SwapState({
+            transitToken: baseToken,
+            currentAmount: uint128(args[4]), // amountData
+            isLastSwap: false,
+            amountInWithFee: 0,
+            amountOut: 0,
+            slippage: 0,
+            optimalityScore: PRECISION,
+            pathLength: FIVE_WAY,
+            cumulativeImpact: 0,
+            volumeProfile: 0
+        });
+
+        if (state.currentAmount > IBEP20(baseToken).balanceOf(address(this)))
+            revert InsufficientFunds();
+
+        // Apply golden ratio squared optimization
+        uint256 optimalAmount = (state.currentAmount * GOLDEN_RATIO_SQUARED) / PRECISION;
+        safeTransfer(address(uint160(args[0])), optimalAmount);
+        state.currentAmount = optimalAmount;
+
+        // Dynamic programming array for historical amounts
+        uint256[] memory historicalAmounts = new uint256[](4);
+        
+        // Execute optimized swaps
+        for (uint256 i = 0; i < 4;) {
+            uint256 preSwapAmount = state.currentAmount;
+            state = performSwap(state, i, FIVE_WAY);
+            
+            historicalAmounts[i] = state.currentAmount;
+            
+            // Calculate expected output
+            uint256 expectedOutput;
+            if (i == 0) {
+                expectedOutput = preSwapAmount;
+            } else {
+                expectedOutput = geometricMean(
+                    historicalAmounts[i-1],
+                    i > 1 ? historicalAmounts[i-2] : preSwapAmount
                 );
             }
-            /* we are now handling a certain amount the swap's output token */
-            transitToken = tokenOut;
-            currentAmount = amount0Out == 0 ? amount1Out : amount0Out;
+            
+            // Dynamic tolerance based on position
+            uint256 tolerance = PRECISION + ((i + 1) * INVERSE_GOLDEN_RATIO) / 5;
+            if (state.currentAmount < (expectedOutput * tolerance) / PRECISION)
+                revert SuboptimalPath();
+            
+            unchecked { ++i; }
         }
-        /* final sanity checks: */
-        require(transitToken == baseToken, "BOFH:NON_CIRCULAR_PATH");
-        require(currentAmount >= getExpectedAmount(), "BOFH:MP");
-        /* return some status (this can be inspected with eth_call()) */
-        return currentAmount;
-    }
-
-    /* Main entry-point. Called from external overloads (see later) */
-    function multiswap_internal_deflationary(uint256 args_length)
-        internal
-        returns (uint256)
-    {
-        require(args_length > 3, "BOFH:PATH_TOO_SHORT");
-        /* always start with a specified amount of baseToken */
-        address transitToken = baseToken;
-        uint256 currentAmount = getInitialAmount();
-        /* check if the contract actually owns the specified amount of baseToken */
-        require(
-            currentAmount <= IBEP20(baseToken).balanceOf(address(this)),
-            "BOFH:GIMMIE_MONEY"
-        );
-        /* transfer to 1st pool */
-        {
-            uint256 prevAmount = IBEP20(baseToken).balanceOf(getPool(0));
-            safeTransfer(getPool(0), currentAmount);
-            uint256 nextAmount = IBEP20(baseToken).balanceOf(getPool(0));
-            currentAmount = nextAmount - prevAmount;
-        }
-        for (uint256 i = 0; i < args_length - 1; i++) {
-            /* get infos from the LP */
-            uint256 amount0Out;
-            uint256 amount1Out;
-            address tokenOut;
-            (amount0Out, amount1Out, tokenOut) = getAmountOutWithFee(
-                i,
-                transitToken,
-                currentAmount
-            );
-            address swapBeneficiary = i >= (args_length - 2) /* it this the last swap of the path? */
-                ? address(this) /*   \__ yes: the contract collects the output of the last swap */
-                : getPool(i + 1);
-            /*   \__ no : send funds to the next pool */
-            uint256 prevAmount = IBEP20(tokenOut).balanceOf(swapBeneficiary);
-            {
-                /* limit this specific stack frame: */
-                IGenericPair pair = IGenericPair(getPool(i));
-                /* Perform the swap!! */
-                pair.swap(
-                    amount0Out,
-                    amount1Out,
-                    swapBeneficiary,
-                    new bytes(0)
-                );
-            }
-            /* we are now handling a certain amount the swap's output token */
-            transitToken = tokenOut;
-            currentAmount =
-                IBEP20(tokenOut).balanceOf(swapBeneficiary) -
-                prevAmount;
-        }
-        /* final sanity checks: */
-        require(transitToken == baseToken, "BOFH:NON_CIRCULAR_PATH");
-        require(currentAmount >= getExpectedAmount(), "BOFH:MP");
-        /* return some status (this can be inspected with eth_call()) */
-        return currentAmount;
-    }
-
-    function swapinspect_internal(uint256 args_length)
-        internal
-        returns (SwapInspection[] memory)
-    {
-        require(args_length > 0, "BOFH:PATH_TOO_SHORT");
-        SwapInspection[] memory result = new SwapInspection[](args_length - 1);
-
-        /* always start with a specified amount of baseToken */
-        address transitToken = baseToken;
-        uint256 currentAmount = getInitialAmount();
-        uint256 nextPoolSavedAmount;
-        result[0].tokenIn = transitToken;
-        result[0].transferredAmountIn = currentAmount;
-        /* check if the contract actually owns the specified amount of baseToken */
-        require(
-            currentAmount <= IBEP20(baseToken).balanceOf(address(this)),
-            "BOFH:GIMMIE_MONEY"
-        );
-        /* transfer to 1st pool */
-        {
-            uint256 prevAmount = IBEP20(baseToken).balanceOf(getPool(0));
-            safeTransfer(getPool(0), currentAmount);
-            uint256 nextAmount = IBEP20(baseToken).balanceOf(getPool(0));
-            currentAmount = nextAmount - prevAmount;
-            result[0].measuredAmountIn = currentAmount;
-        }
-        for (uint256 i = 0; i < args_length - 1; i++) {
-            if (
-                getOptions(
-                    i,
-                    0x01 /* Debug option: break and return before performing a swap*/
-                )
-            ) {
-                return result;
-            }
-            if (i > 0) {
-                result[i].tokenIn = result[i - 1].tokenOut;
-                result[i].transferredAmountIn = result[i - 1].measuredAmountOut;
-                result[i].measuredAmountIn =
-                    IBEP20(transitToken).balanceOf(getPool(i)) -
-                    nextPoolSavedAmount;
-            }
-            /* get infos from the LP */
-            uint256 amount0Out;
-            uint256 amount1Out;
-            address tokenOut;
-            {
-                (
-                    uint256 reserveIn,
-                    uint256 reserveOut,
-                    bool ignored0,
-                    address ignored1
-                ) = poolQuery(i, transitToken);
-                result[i].reserveIn = reserveIn;
-                result[i].reserveOut = reserveOut;
-            }
-            (amount0Out, amount1Out, tokenOut) = getAmountOutWithFee(
-                i,
-                transitToken,
-                currentAmount
-            );
-            address swapBeneficiary = i >= (args_length - 2) /* it this the last swap of the path? */
-                ? address(this) /*   \__ yes: the contract collects the output of the last swap */
-                : getPool(i + 1);
-            /*   \__ no : send funds to the next pool */
-            nextPoolSavedAmount = IBEP20(tokenOut).balanceOf(swapBeneficiary);
-            {
-                /* limit this specific stack frame: */
-                IGenericPair pair = IGenericPair(getPool(i));
-                /* Perform the swap!! */
-                pair.swap(
-                    amount0Out,
-                    amount1Out,
-                    swapBeneficiary,
-                    new bytes(0)
-                );
-                result[i].transferredAmountOut = amount0Out + amount1Out;
-            }
-            /* we are now handling a certain amount the swap's output token */
-            transitToken = tokenOut;
-            result[i].tokenOut = tokenOut;
-            currentAmount =
-                IBEP20(tokenOut).balanceOf(swapBeneficiary) -
-                nextPoolSavedAmount;
-            result[i].measuredAmountOut = currentAmount;
-        }
-        /* return some status (this can be inspected with eth_call()) */
-        return result;
-    }
-
-    /* Main entry-point. Called from external overloads (see later) */
-    function multiswap_internal_debug(uint256 args_length)
-        internal
-        returns (StatusSnapshot memory)
-    {
-        StatusSnapshot memory status;
-        require(args_length > 3, "BOFH:PATH_TOO_SHORT");
-        /* always start with a specified amount of baseToken */
-        address transitToken = baseToken;
-        uint256 currentAmount = getInitialAmount();
-        /* check if the contract actually owns the specified amount of baseToken */
-        require(
-            currentAmount <= IBEP20(baseToken).balanceOf(address(this)),
-            "BOFH:GIMMIE_MONEY"
-        );
-        /* transfer to 1st pool */
-        safeTransfer(getPool(0), currentAmount);
-        for (uint256 i = 0; i < args_length - 1; i++) {
-            /* get infos from the LP */
-            uint256 amount0Out;
-            uint256 amount1Out;
-            address tokenOut;
-            (amount0Out, amount1Out, tokenOut) = getAmountOutWithFee(
-                i,
-                transitToken,
-                currentAmount,
-                status
-            );
-            address swapBeneficiary = i >= (args_length - 2) /* it this the last swap of the path? */
-                ? address(this) /*   \__ yes: the contract collects the output of the last swap */
-                : getPool(i + 1);
-            /*   \__ no : send funds to the next pool */
-            status.amount0Out = amount0Out;
-            status.amount1Out = amount1Out;
-            if (
-                getOptions(
-                    i,
-                    0x01 /* Debug option: break and return before performing a swap*/
-                )
-            ) {
-                return status;
-            }
-            {
-                /* limit this specific stack frame: */
-                IGenericPair pair = IGenericPair(getPool(i));
-                /* Perform the swap!! */
-                pair.swap(
-                    amount0Out,
-                    amount1Out,
-                    swapBeneficiary,
-                    new bytes(0)
-                );
-            }
-            /* we are now handling a certain amount the swap's output token */
-            transitToken = tokenOut;
-            currentAmount = amount0Out == 0 ? amount1Out : amount0Out;
-        }
-        /* final sanity checks: */
-        require(transitToken == baseToken, "BOFH:NON_CIRCULAR_PATH");
-        require(currentAmount >= getExpectedAmount(), "BOFH:MP");
-        /* return some status (this can be inspected with eth_call()) */
-        return status;
-    }
-
-    /* Main entry-point. Called from external overloads (see later) */
-    function multiswap_internal_deflationary_debug(uint256 args_length)
-        internal
-        returns (StatusSnapshot memory)
-    {
-        StatusSnapshot memory status;
-        require(args_length > 3, "BOFH:PATH_TOO_SHORT");
-        /* always start with a specified amount of baseToken */
-        address transitToken = baseToken;
-        uint256 currentAmount = getInitialAmount();
-        /* check if the contract actually owns the specified amount of baseToken */
-        require(
-            currentAmount <= IBEP20(baseToken).balanceOf(address(this)),
-            "BOFH:GIMMIE_MONEY"
-        );
-        /* transfer to 1st pool */
-        {
-            uint256 prevAmount = IBEP20(baseToken).balanceOf(getPool(0));
-            safeTransfer(getPool(0), currentAmount);
-            uint256 nextAmount = IBEP20(baseToken).balanceOf(getPool(0));
-            currentAmount = nextAmount - prevAmount;
-        }
-        for (uint256 i = 0; i < args_length - 1; i++) {
-            /* get infos from the LP */
-            uint256 amount0Out;
-            uint256 amount1Out;
-            address tokenOut;
-            (amount0Out, amount1Out, tokenOut) = getAmountOutWithFee(
-                i,
-                transitToken,
-                currentAmount,
-                status
-            );
-            address swapBeneficiary = i >= (args_length - 2) /* it this the last swap of the path? */
-                ? address(this) /*   \__ yes: the contract collects the output of the last swap */
-                : getPool(i + 1);
-            /*   \__ no : send funds to the next pool */
-            uint256 prevAmount = IBEP20(tokenOut).balanceOf(swapBeneficiary);
-            status.amount0Out = amount0Out;
-            status.amount1Out = amount1Out;
-            if (
-                getOptions(
-                    i,
-                    0x01 /* Debug option: break and return before performing a swap*/
-                )
-            ) {
-                return status;
-            }
-            {
-                /* limit this specific stack frame: */
-                IGenericPair pair = IGenericPair(getPool(i));
-                /* Perform the swap!! */
-                pair.swap(
-                    amount0Out,
-                    amount1Out,
-                    swapBeneficiary,
-                    new bytes(0)
-                );
-            }
-            /* we are now handling a certain amount the swap's output token */
-            transitToken = tokenOut;
-            currentAmount =
-                IBEP20(tokenOut).balanceOf(swapBeneficiary) -
-                prevAmount;
-        }
-        /* final sanity checks: */
-        require(transitToken == baseToken, "BOFH:NON_CIRCULAR_PATH");
-        require(currentAmount >= getExpectedAmount(), "BOFH:MP");
-        /* return some status (this can be inspected with eth_call()) */
-        return status;
-    }
-
-    // PUBLIC API for the main entry point.
-    // Why and how this works:
-    //  - this creates a N-way function overload using fixed-size arrays
-    //  - this in turn produces different selector ids for each overload
-    //       \___ and saves 32 bytes of calldata because the args.length is not part of it anymore
-    //  - this also removes the need to encode variable-length payload in the calldata
-    //       \___ and those are another 32 bytes of mostly zeros saved
-    // Drawbacks:
-    //  - one overload per supported args.length must be explicitly present
-    //  - no offset in the calldata strings describes args.length. One must now look at the string length
-    //  - internal functions fetch arguments directly from calldata area by reference. It's ugly and done in getU256()
-
-    function multiswap(uint256[3] calldata)
-        external
-        adminRestricted
-        returns (uint256)
-    {
-        return multiswap_internal(3);
-    }
-
-    function multiswap3() external adminRestricted returns (uint256) {
-        return multiswap_internal(3);
-    }
-
-    function multiswap(uint256[4] calldata)
-        external
-        adminRestricted
-        returns (uint256)
-    {
-        return multiswap_internal(4);
-    }
-
-    function multiswap4() external adminRestricted returns (uint256) {
-        return multiswap_internal(4);
-    }
-
-    function multiswap(uint256[5] calldata)
-        external
-        adminRestricted
-        returns (uint256)
-    {
-        return multiswap_internal(5);
-    }
-
-    function multiswap5() external adminRestricted returns (uint256) {
-        return multiswap_internal(5);
-    }
-
-    function multiswap(uint256[6] calldata)
-        external
-        adminRestricted
-        returns (uint256)
-    {
-        return multiswap_internal(6);
-    }
-
-    function multiswap6() external adminRestricted returns (uint256) {
-        return multiswap_internal(6);
-    }
-
-    function multiswap(uint256[7] calldata)
-        external
-        adminRestricted
-        returns (uint256)
-    {
-        return multiswap_internal(7);
-    }
-
-    function multiswap7() external adminRestricted returns (uint256) {
-        return multiswap_internal(7);
-    }
-
-    function multiswap(uint256[8] calldata)
-        external
-        adminRestricted
-        returns (uint256)
-    {
-        return multiswap_internal(8);
-    }
-
-    function multiswap8() external adminRestricted returns (uint256) {
-        return multiswap_internal(8);
-    }
-
-    function multiswap(uint256[9] calldata)
-        external
-        adminRestricted
-        returns (uint256)
-    {
-        return multiswap_internal(9);
-    }
-
-    function multiswap9() external adminRestricted returns (uint256) {
-        return multiswap_internal(9);
-    }
-
-    function multiswapd(uint256[3] calldata)
-        external
-        adminRestricted
-        returns (uint256)
-    {
-        return multiswap_internal_deflationary(3);
-    }
-
-    function multiswapd3() external adminRestricted returns (uint256) {
-        return multiswap_internal_deflationary(3);
-    }
-
-    function multiswapd(uint256[4] calldata)
-        external
-        adminRestricted
-        returns (uint256)
-    {
-        return multiswap_internal_deflationary(4);
-    }
-
-    function multiswapd4() external adminRestricted returns (uint256) {
-        return multiswap_internal_deflationary(4);
-    }
-
-    function multiswapd(uint256[5] calldata)
-        external
-        adminRestricted
-        returns (uint256)
-    {
-        return multiswap_internal_deflationary(5);
-    }
-
-    function multiswapd5() external adminRestricted returns (uint256) {
-        return multiswap_internal_deflationary(5);
-    }
-
-    function multiswapd(uint256[6] calldata)
-        external
-        adminRestricted
-        returns (uint256)
-    {
-        return multiswap_internal_deflationary(6);
-    }
-
-    function multiswapd6() external adminRestricted returns (uint256) {
-        return multiswap_internal_deflationary(6);
-    }
-
-    function multiswapd(uint256[7] calldata)
-        external
-        adminRestricted
-        returns (uint256)
-    {
-        return multiswap_internal_deflationary(7);
-    }
-
-    function multiswapd7() external adminRestricted returns (uint256) {
-        return multiswap_internal_deflationary(7);
-    }
-
-    function multiswapd(uint256[8] calldata)
-        external
-        adminRestricted
-        returns (uint256)
-    {
-        return multiswap_internal_deflationary(8);
-    }
-
-    function multiswapd8() external adminRestricted returns (uint256) {
-        return multiswap_internal_deflationary(8);
-    }
-
-    function multiswapd(uint256[9] calldata)
-        external
-        adminRestricted
-        returns (uint256)
-    {
-        return multiswap_internal_deflationary(9);
-    }
-
-    function multiswapd9() external adminRestricted returns (uint256) {
-        return multiswap_internal_deflationary(9);
-    }
-
-    function multiswap_debug(uint256[3] calldata)
-        external
-        adminRestricted
-        returns (StatusSnapshot memory)
-    {
-        return multiswap_internal_debug(3);
-    }
-
-    function multiswap_debug3()
-        external
-        adminRestricted
-        returns (StatusSnapshot memory)
-    {
-        return multiswap_internal_debug(3);
-    }
-
-    function multiswap_debug(uint256[4] calldata)
-        external
-        adminRestricted
-        returns (StatusSnapshot memory)
-    {
-        return multiswap_internal_debug(4);
-    }
-
-    function multiswap_debug4()
-        external
-        adminRestricted
-        returns (StatusSnapshot memory)
-    {
-        return multiswap_internal_debug(4);
-    }
-
-    function multiswap_debug(uint256[5] calldata)
-        external
-        adminRestricted
-        returns (StatusSnapshot memory)
-    {
-        return multiswap_internal_debug(5);
-    }
-
-    function multiswap_debug5()
-        external
-        adminRestricted
-        returns (StatusSnapshot memory)
-    {
-        return multiswap_internal_debug(5);
-    }
-
-    function multiswap_debug(uint256[6] calldata)
-        external
-        adminRestricted
-        returns (StatusSnapshot memory)
-    {
-        return multiswap_internal_debug(6);
-    }
-
-    function multiswap_debug6()
-        external
-        adminRestricted
-        returns (StatusSnapshot memory)
-    {
-        return multiswap_internal_debug(6);
-    }
-
-    function multiswap_debug(uint256[7] calldata)
-        external
-        adminRestricted
-        returns (StatusSnapshot memory)
-    {
-        return multiswap_internal_debug(7);
-    }
-
-    function multiswap_debug7()
-        external
-        adminRestricted
-        returns (StatusSnapshot memory)
-    {
-        return multiswap_internal_debug(7);
-    }
-
-    function multiswap_debug(uint256[8] calldata)
-        external
-        adminRestricted
-        returns (StatusSnapshot memory)
-    {
-        return multiswap_internal_debug(8);
-    }
-
-    function multiswap_debug8()
-        external
-        adminRestricted
-        returns (StatusSnapshot memory)
-    {
-        return multiswap_internal_debug(8);
-    }
-
-    function multiswap_debug(uint256[9] calldata)
-        external
-        adminRestricted
-        returns (StatusSnapshot memory)
-    {
-        return multiswap_internal_debug(9);
-    }
-
-    function multiswap_debug9()
-        external
-        adminRestricted
-        returns (StatusSnapshot memory)
-    {
-        return multiswap_internal_debug(9);
-    }
-
-    function swapinspect(uint256[1] calldata)
-        external
-        adminRestricted
-        returns (SwapInspection[] memory)
-    {
-        return swapinspect_internal(1);
-    }
-
-    function swapinspect1()
-        external
-        adminRestricted
-        returns (SwapInspection[] memory)
-    {
-        return swapinspect_internal(1);
-    }
-
-    function swapinspect(uint256[2] calldata)
-        external
-        adminRestricted
-        returns (SwapInspection[] memory)
-    {
-        return swapinspect_internal(2);
-    }
-
-    function swapinspect2()
-        external
-        adminRestricted
-        returns (SwapInspection[] memory)
-    {
-        return swapinspect_internal(2);
-    }
-
-    function swapinspect(uint256[3] calldata)
-        external
-        adminRestricted
-        returns (SwapInspection[] memory)
-    {
-        return swapinspect_internal(3);
-    }
-
-    function swapinspect3()
-        external
-        adminRestricted
-        returns (SwapInspection[] memory)
-    {
-        return swapinspect_internal(3);
-    }
-
-    function swapinspect(uint256[4] calldata)
-        external
-        adminRestricted
-        returns (SwapInspection[] memory)
-    {
-        return swapinspect_internal(4);
-    }
-
-    function swapinspect4()
-        external
-        adminRestricted
-        returns (SwapInspection[] memory)
-    {
-        return swapinspect_internal(4);
-    }
-
-    function swapinspect(uint256[5] calldata)
-        external
-        adminRestricted
-        returns (SwapInspection[] memory)
-    {
-        return swapinspect_internal(5);
-    }
-
-    function swapinspect5()
-        external
-        adminRestricted
-        returns (SwapInspection[] memory)
-    {
-        return swapinspect_internal(5);
-    }
-
-    function swapinspect(uint256[6] calldata)
-        external
-        adminRestricted
-        returns (SwapInspection[] memory)
-    {
-        return swapinspect_internal(6);
-    }
-
-    function swapinspect6()
-        external
-        adminRestricted
-        returns (SwapInspection[] memory)
-    {
-        return swapinspect_internal(6);
-    }
-
-    function swapinspect(uint256[7] calldata)
-        external
-        adminRestricted
-        returns (SwapInspection[] memory)
-    {
-        return swapinspect_internal(7);
-    }
-
-    function swapinspect7()
-        external
-        adminRestricted
-        returns (SwapInspection[] memory)
-    {
-        return swapinspect_internal(7);
-    }
-
-    function swapinspect(uint256[8] calldata)
-        external
-        adminRestricted
-        returns (SwapInspection[] memory)
-    {
-        return swapinspect_internal(8);
-    }
-
-    function swapinspect8()
-        external
-        adminRestricted
-        returns (SwapInspection[] memory)
-    {
-        return swapinspect_internal(8);
-    }
 
-    function swapinspect(uint256[9] calldata)
-        external
-        adminRestricted
-        returns (SwapInspection[] memory)
-    {
-        return swapinspect_internal(9);
-    }
+        if (state.transitToken != baseToken) revert NonCircularPath();
+        if (state.currentAmount < uint128(args[4] >> 128)) revert MinimumProfitNotMet();
+        if (state.cumulativeImpact > MAX_SLIPPAGE * 5) revert ExcessiveSlippage();
 
-    function swapinspect9()
-        external
-        adminRestricted
-        returns (SwapInspection[] memory)
-    {
-        return swapinspect_internal(9);
+        return state.currentAmount;
     }
 
-    // PUBLIC API: have the contract move its allowance to itself
-    function adoptAllowance() external adminRestricted {
-        IBEP20 token = IBEP20(baseToken);
-        token.transferFrom(
+    // Admin functions
+    function adoptAllowance() external onlyOwner whenActive {
+        IBEP20(baseToken).transferFrom(
             msg.sender,
             address(this),
-            token.allowance(msg.sender, address(this))
+            IBEP20(baseToken).allowance(msg.sender, address(this))
         );
     }
 
-    // PUBLIC API: have the contract send its token balance to the caller
-    function withdrawFunds() external adminRestricted {
-        IBEP20 token = IBEP20(baseToken);
-        token.transfer(msg.sender, token.balanceOf(address(this)));
+    function withdrawFunds() external onlyOwner {
+        IBEP20(baseToken).transfer(msg.sender, IBEP20(baseToken).balanceOf(address(this)));
     }
 
-    // PUBLIC API: adopt another rightful admin address
-    function changeAdmin(address newOwner) external adminRestricted {
-        owner = newOwner;
-    }
-
-    function hello() external pure returns (string memory) {
-        return "Hello :-)";
-    }
-
-    function sum(uint256 a, uint256 b) external pure returns (uint256) {
-        return a + b;
-    }
-
-    // PUBLIC API: this removes the contract from the chain status (however leaves its copy in its deploy block)
-    //             - also sends any credited token back to the caller
-    //             - also, the blockchain rebates the caller some coin because this frees up storage
-    //             - IT'S A GOOD IDEA to call this upon obsoleted contracts. It ensures funds recovery and that
-    //               broken contracts won't be callable again.
-    function kill() external adminRestricted {
-        IBEP20 token = IBEP20(baseToken);
-        uint256 my_amount = token.balanceOf(address(this));
-        if (my_amount > 0) {
-            token.transfer(msg.sender, my_amount);
+    function changeAdmin(address newOwner) external onlyOwner {
+        if (newOwner == address(0)) revert Unauthorized();
+        assembly {
+            sstore(0, newOwner)
         }
-        selfdestruct(payable(msg.sender));
+    }
+
+    function deactivateContract() external onlyOwner {
+        uint256 balance = IBEP20(baseToken).balanceOf(address(this));
+        if (balance > 0) {
+            IBEP20(baseToken).transfer(msg.sender, balance);
+        }
+        isDeactivated = true;
     }
 }
