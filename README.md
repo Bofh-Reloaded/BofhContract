@@ -1,294 +1,180 @@
-# BofhContract - Advanced DEX Arbitrage System
+# BofhContract V2
 
-BofhContract implements a sophisticated arbitrage system for decentralized exchanges (DEX) using advanced mathematical principles, MEV protection mechanisms, and deflationary token support.
+An optimized smart contract implementation for executing multi-path token swaps with advanced mathematical optimization techniques and robust security features.
 
-## Mathematical Foundations
+## Architecture
 
-### 1. Golden Ratio Optimization (φ)
+The project is structured into several modular components:
 
-The contract uses the golden ratio (φ ≈ 0.618034) for optimal trade splitting based on the following principles:
+### Core Contracts
 
-1. Fibonacci Sequence Properties:
-   - φ = (1 + √5) / 2 ≈ 1.618034
-   - 1/φ = φ - 1 ≈ 0.618034
-   - φ2 = φ + 1 ≈ 2.618034
+- `BofhContractBase.sol`: Base contract with common functionality and security features
+- `BofhContractV2.sol`: Main implementation with optimized swap execution logic
+- `MathLib.sol`: Advanced mathematical functions library
+- `PoolLib.sol`: DEX pool interaction and analysis library
+- `SecurityLib.sol`: Security and access control library
 
-2. Trade Size Optimization:
-   ```solidity
-   optimalAmount = currentAmount * GOLDEN_RATIO // φ ≈ 0.618034
-   ```
-   - Balances price impact vs. trade size
-   - Minimizes slippage across multiple pools
-   - Maintains optimal liquidity utilization
+### Interfaces
 
-3. Path-Specific Applications:
-   - 4-way paths: Uses φ directly
-   - 5-way paths: Uses φ2 for deeper paths
-   - Dynamic adjustment based on path length
+- `ISwapInterfaces.sol`: Common interfaces for token and pool interactions
 
-### 2. Price Impact Calculation
+### Mock Contracts (for testing)
 
-The contract uses cubic root for price impact calculation to provide more accurate slippage estimation:
+- `MockToken.sol`: ERC20 token implementation
+- `MockPair.sol`: DEX pair contract simulation
+- `MockFactory.sol`: DEX factory contract simulation
 
-```solidity
-function calculatePriceImpact(amountIn, pool) {
-    k = reserveIn * reserveOut;
-    newReserveIn = reserveIn + amountIn;
-    newK = newReserveIn * reserveOut;
-    impactCubed = (newK * PRECISION * PRECISION) / (k * PRECISION);
-    return cbrt(impactCubed);
-}
+## Features
+
+- Optimized 4-way and 5-way swap paths using golden ratio techniques
+- Advanced price impact calculation and slippage protection
+- MEV protection with configurable parameters
+- Dynamic gas optimization
+- Comprehensive security features including:
+  - Reentrancy protection
+  - Circuit breakers
+  - Access control
+  - Rate limiting
+- Modular and upgradeable architecture
+- Extensive test coverage
+
+## Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/BofhContract.git
+cd BofhContract
 ```
 
-This approach:
-- Provides more accurate impact assessment than linear calculation
-- Better handles large trades
-- Accounts for pool depth
-
-### 3. MEV Protection
-
-The contract implements multiple layers of MEV protection:
-
-1. Sandwich Attack Detection:
-   ```solidity
-   expectedPrice = (reserveOut * PRECISION) / reserveIn;
-   actualPrice = (currentAmount * PRECISION) / reserveIn;
-   priceDeviation = |actualPrice - expectedPrice| * PRECISION / expectedPrice;
-   require(priceDeviation <= sandwichProtectionBips);
-   ```
-
-2. Dynamic Slippage Tolerance:
-   ```solidity
-   maxAllowedSlippage = (MAX_SLIPPAGE * (idx + 1)) / pathLength;
-   ```
-   - Increases with path depth
-   - Accounts for cumulative impact
-
-3. Price Impact Monitoring:
-   - Uses geometric mean for validation
-   - Tracks cumulative impact
-   - Enforces maximum deviation limits
-
-### 4. Dynamic Programming Implementation
-
-For 5-way paths, the contract uses dynamic programming to optimize execution:
-
-1. Historical Analysis:
-   ```solidity
-   historicalAmounts[i] = currentAmount;
-   expectedOutput = geometricMean(
-       historicalAmounts[i-1],
-       i > 1 ? historicalAmounts[i-2] : preSwapAmount
-   );
-   ```
-
-2. Progressive Tolerance:
-   ```solidity
-   tolerance = PRECISION + ((i + 1) * INVERSE_GOLDEN_RATIO) / 5;
-   ```
-   - Adapts to path position
-   - Uses inverse golden ratio for scaling
-
-### 5. Deflationary Token Support
-
-The contract implements comprehensive support for deflationary tokens:
-
-1. Balance Tracking:
-   ```solidity
-   uint256 prevAmount = IBEP20(token).balanceOf(beneficiary);
-   safeTransfer(beneficiary, amount);
-   uint256 nextAmount = IBEP20(token).balanceOf(beneficiary);
-   actualAmount = nextAmount - prevAmount;
-   ```
-   - Accurate amount calculation
-   - Handles fee-on-transfer tokens
-   - Supports reflection tokens
-
-2. Integration with Path Optimization:
-   ```solidity
-   // Apply golden ratio optimization with deflationary support
-   uint256 optimalAmount = (state.currentAmount * GOLDEN_RATIO) / PRECISION;
-   uint256 prevAmount = IBEP20(baseToken).balanceOf(firstPool);
-   safeTransfer(firstPool, optimalAmount);
-   uint256 nextAmount = IBEP20(baseToken).balanceOf(firstPool);
-   state.currentAmount = nextAmount - prevAmount;
-   ```
-   - Maintains optimal ratios
-   - Adjusts for token mechanics
-   - Preserves path efficiency
-
-## Advanced Features
-
-### 1. Risk Management System
-
-```solidity
-// Risk parameters
-mapping(address => bool) public blacklistedPools;
-uint256 public maxTradeVolume;
-uint256 public minPoolLiquidity;
-uint256 public maxPriceImpact;
-uint256 public sandwichProtectionBips;
+2. Install dependencies:
+```bash
+npm install
 ```
 
-1. Pool Validation:
-   - Minimum liquidity requirements
-   - Blacklist functionality
-   - Volume-based limits
-
-2. Dynamic Profit Thresholds:
-   ```solidity
-   gasUsed = GAS_OVERHEAD_PER_SWAP * (idx + 1);
-   minProfitRequired = (gasUsed * tx.gasprice * 12) / 10; // 20% buffer
-   ```
-   - Accounts for gas costs
-   - Includes safety buffer
-   - Prevents unprofitable trades
-
-### 2. Path Optimization
-
-1. Four-Way Paths:
-   ```
-   baseToken → token1 → token2 → token3 → baseToken
-   ```
-   - Uses golden ratio (φ)
-   - Optimal for moderate market inefficiencies
-   - Lower gas costs
-
-2. Five-Way Paths:
-   ```
-   baseToken → token1 → token2 → token3 → token4 → baseToken
-   ```
-   - Uses golden ratio squared (φ2)
-   - Better for complex arbitrage
-   - Higher potential profit
-
-### 3. Safety Mechanisms
-
-1. Emergency Controls:
-   ```solidity
-   function emergencyPause(bool pause) external onlyOwner {
-       emergencyPaused = pause;
-       if (pause) {
-           // Withdraw all funds
-           uint256 balance = IBEP20(baseToken).balanceOf(address(this));
-           if (balance > 0) {
-               IBEP20(baseToken).transfer(msg.sender, balance);
-           }
-       }
-   }
-   ```
-
-2. Circuit Breakers:
-   - Maximum slippage per swap
-   - Cumulative impact limits
-   - Volume restrictions
-
-## Technical Implementation
-
-### 1. Gas Optimizations
-
-1. Memory Management:
-   - Packed structs
-   - Efficient calldata handling
-   - Minimal storage operations
-
-2. Computational Efficiency:
-   - Unchecked arithmetic where safe
-   - Assembly for critical operations
-   - Optimized loops
-
-### 2. Error Handling
-
-Custom errors with specific conditions:
-```solidity
-error InsufficientLiquidity();
-error ExcessiveSlippage();
-error SuboptimalPath();
-error MinimumProfitNotMet();
+3. Compile contracts:
+```bash
+truffle compile
 ```
 
-### 3. Preprocessor Optimizations
-
-The contract is available in three variants:
-
-1. BofhContract.sol:
-   - Standard implementation
-   - Full features and optimizations
-   - Production-ready
-
-2. BofhContract.pp.sol:
-   - Preprocessor-based implementation
-   - Debug capabilities
-   - Development and testing
-
-3. BofhContract-nodebug.sol:
-   - Optimized production version
-   - No debug overhead
-   - Maximum gas efficiency
-
-## Usage Guide
-
-### Parameter Encoding
-
-The contract uses an optimized encoding scheme:
-
-```solidity
-// Pool data encoding
-poolData = (feePPM << 160) | poolAddress
-
-// Amount data encoding
-amountData = initialAmount | (expectedAmount << 128)
+4. Run tests:
+```bash
+truffle test
 ```
 
-### Function Calls
+## Usage
 
-1. Four-Way Arbitrage:
-```solidity
-function fourWaySwap(uint256[4] calldata args) external
+### Deployment
+
+1. Configure your network in `truffle-config.js`
+2. Set up your deployment variables in `.env`
+3. Run migrations:
+```bash
+truffle migrate --network <network_name>
 ```
 
-2. Five-Way Arbitrage:
+### Contract Interaction
+
+The main contract exposes the following key functions:
+
 ```solidity
-function fiveWaySwap(uint256[5] calldata args) external
+// Execute a single path swap
+function executeSwap(
+    address[] calldata path,
+    uint256[] calldata fees,
+    uint256 amountIn,
+    uint256 minAmountOut,
+    uint256 deadline
+) external returns (uint256);
+
+// Execute multiple path swaps
+function executeMultiSwap(
+    address[][] calldata paths,
+    uint256[][] calldata fees,
+    uint256[] calldata amounts,
+    uint256[] calldata minAmounts,
+    uint256 deadline
+) external returns (uint256[] memory);
+
+// Get optimal path metrics
+function getOptimalPathMetrics(
+    address[] calldata path,
+    uint256[] calldata amounts
+) external view returns (
+    uint256 expectedOutput,
+    uint256 priceImpact,
+    uint256 optimalityScore
+);
 ```
 
-### Risk Parameters
+### Risk Management
 
-Configurable via admin functions:
+Administrators can configure risk parameters:
+
 ```solidity
 function updateRiskParams(
-    uint256 _maxTradeVolume,
-    uint256 _minPoolLiquidity,
-    uint256 _maxPriceImpact,
-    uint256 _sandwichProtectionBips
-) external onlyOwner
+    uint256 maxTradeVolume,
+    uint256 minPoolLiquidity,
+    uint256 maxPriceImpact,
+    uint256 sandwichProtectionBips
+) external;
 ```
 
-## Monitoring and Control
+## Mathematical Optimizations
 
-### Events
+The contract implements several advanced mathematical techniques:
 
-```solidity
-event PoolBlacklisted(address indexed pool, bool blacklisted);
-event RiskParamsUpdated(
-    uint256 maxVolume,
-    uint256 minLiquidity,
-    uint256 maxImpact,
-    uint256 sandwichProtection
-);
-event EmergencyAction(bool paused);
+1. Golden Ratio Optimization
+   - Uses φ (≈ 0.618034) for optimal 4-way splits
+   - Uses φ2 (≈ 0.381966) for optimal 5-way splits
+
+2. Dynamic Programming
+   - Implements path optimization using historical amounts
+   - Calculates geometric means for expected outputs
+
+3. Price Impact Analysis
+   - Advanced slippage calculation using cubic root approximation
+   - Volatility tracking with exponential moving averages
+
+## Security Considerations
+
+1. MEV Protection
+   - Sandwich attack detection
+   - Configurable slippage tolerance
+   - Maximum price impact limits
+
+2. Circuit Breakers
+   - Emergency pause functionality
+   - Blacklist capability for compromised pools
+   - Rate limiting for high-frequency operations
+
+3. Access Control
+   - Role-based permissions
+   - Time-locked administrative functions
+   - Operator management
+
+## Testing
+
+The test suite includes:
+
+- Unit tests for mathematical functions
+- Integration tests for swap execution
+- Security tests for access control
+- Gas optimization tests
+- Mock contract tests
+
+Run the full test suite:
+```bash
+truffle test
 ```
 
-### Admin Functions
+## License
 
-1. Risk Management:
-   - `setPoolBlacklist(address pool, bool blacklisted)`
-   - `updateRiskParams(...)`
-   - `emergencyPause(bool pause)`
+UNLICENSED
 
-2. Fund Management:
-   - `adoptAllowance()`
-   - `withdrawFunds()`
-   - `deactivateContract()`
+## Contributing
 
-The contract combines advanced mathematical principles with robust safety mechanisms to execute profitable arbitrage while protecting against MEV attacks and maintaining optimal gas efficiency. It provides comprehensive support for deflationary tokens and offers multiple deployment options through preprocessor-based optimizations.
+1. Fork the repository
+2. Create your feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a new Pull Request
