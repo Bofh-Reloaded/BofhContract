@@ -229,4 +229,60 @@ abstract contract BofhContractBase {
         uint256[] calldata minAmounts,
         uint256 deadline
     ) external virtual returns (uint256[] memory);
+
+    // View functions for testing and external integrations
+
+    /// @notice Get the contract administrator address
+    /// @return The address of the contract owner
+    function getAdmin() external view returns (address) {
+        return securityState.owner;
+    }
+
+    /// @notice Get all risk management parameters
+    /// @return maxVolume Maximum trade volume allowed
+    /// @return minLiquidity Minimum pool liquidity required
+    /// @return maxImpact Maximum price impact allowed (in PRECISION units)
+    /// @return sandwichProtection Sandwich attack protection in basis points
+    function getRiskParameters() external view returns (
+        uint256 maxVolume,
+        uint256 minLiquidity,
+        uint256 maxImpact,
+        uint256 sandwichProtection
+    ) {
+        return (
+            maxTradeVolume,
+            minPoolLiquidity,
+            maxPriceImpact,
+            sandwichProtectionBips
+        );
+    }
+
+    /// @notice Check if a pool is blacklisted
+    /// @param pool The address of the pool to check
+    /// @return True if the pool is blacklisted, false otherwise
+    function isPoolBlacklisted(address pool) external view returns (bool) {
+        return blacklistedPools[pool];
+    }
+
+    /// @notice Check if the contract is currently paused
+    /// @return True if paused, false if active
+    function isPaused() external view returns (bool) {
+        return securityState.paused;
+    }
+
+    /// @notice Get MEV protection configuration
+    /// @return enabled Whether MEV protection is enabled
+    /// @return maxTx Maximum transactions per block
+    /// @return minDelay Minimum delay between transactions in seconds
+    function getMEVProtectionConfig() external view returns (
+        bool enabled,
+        uint256 maxTx,
+        uint256 minDelay
+    ) {
+        return (
+            mevProtectionEnabled,
+            maxTxPerBlock,
+            minTxDelay
+        );
+    }
 }

@@ -327,7 +327,13 @@ contract BofhContractV2 is BofhContractBase {
         
         priceImpact = cumulativeImpact;
         optimalityScore = (expectedOutput * PRECISION) / amounts[0];
-        
+
         return (expectedOutput, priceImpact, optimalityScore);
+    }
+
+    /// @notice Get the base token address used for swaps
+    /// @return The address of the base token
+    function getBaseToken() external view returns (address) {
+        return baseToken;
     }
 }

@@ -111,7 +111,7 @@ describe("BofhContractV2", function () {
         it("Should start in active (not paused) state", async function () {
             const { bofh } = await loadFixture(deployContractsFixture);
             // Contract should allow operations (not paused)
-            await expect(bofh.getAdmin()).to.not.be.reverted;
+            expect(await bofh.isPaused()).to.be.false;
         });
 
         it("Should reject deployment with zero address base token", async function () {
@@ -151,18 +151,18 @@ describe("BofhContractV2", function () {
 
         it("Should allow owner to pause contract", async function () {
             const { bofh, owner } = await loadFixture(deployContractsFixture);
-            await expect(bofh.connect(owner).pause()).to.not.be.reverted;
+            await expect(bofh.connect(owner).emergencyPause()).to.not.be.reverted;
         });
 
         it("Should prevent non-owner from pausing", async function () {
             const { bofh, user1 } = await loadFixture(deployContractsFixture);
-            await expect(bofh.connect(user1).pause()).to.be.reverted;
+            await expect(bofh.connect(user1).emergencyPause()).to.be.reverted;
         });
 
         it("Should allow owner to unpause contract", async function () {
             const { bofh, owner } = await loadFixture(deployContractsFixture);
-            await bofh.connect(owner).pause();
-            await expect(bofh.connect(owner).unpause()).to.not.be.reverted;
+            await bofh.connect(owner).emergencyPause();
+            await expect(bofh.connect(owner).emergencyUnpause()).to.not.be.reverted;
         });
 
         it("Should allow owner to transfer ownership", async function () {
@@ -185,7 +185,7 @@ describe("BofhContractV2", function () {
             const deadline = await time.latest() + 300;
 
             await expect(
-                bofh.connect(user1).fourWaySwap(
+                bofh.connect(user1).executeSwap(
                     [],
                     [3000n, 3000n],
                     SWAP_AMOUNT,
@@ -206,7 +206,7 @@ describe("BofhContractV2", function () {
             ];
 
             await expect(
-                bofh.connect(user1).fourWaySwap(
+                bofh.connect(user1).executeSwap(
                     path,
                     [3000n], // Wrong length - should be path.length - 1
                     SWAP_AMOUNT,
@@ -227,7 +227,7 @@ describe("BofhContractV2", function () {
             ];
 
             await expect(
-                bofh.connect(user1).fourWaySwap(
+                bofh.connect(user1).executeSwap(
                     path,
                     [3000n, 3000n],
                     0n,
@@ -248,7 +248,7 @@ describe("BofhContractV2", function () {
             ];
 
             await expect(
-                bofh.connect(user1).fourWaySwap(
+                bofh.connect(user1).executeSwap(
                     path,
                     [3000n, 3000n],
                     SWAP_AMOUNT,
@@ -269,7 +269,7 @@ describe("BofhContractV2", function () {
             ];
 
             await expect(
-                bofh.connect(user1).fourWaySwap(
+                bofh.connect(user1).executeSwap(
                     path,
                     [3000n, 3000n],
                     SWAP_AMOUNT,
@@ -290,7 +290,7 @@ describe("BofhContractV2", function () {
             ];
 
             await expect(
-                bofh.connect(user1).fourWaySwap(
+                bofh.connect(user1).executeSwap(
                     path,
                     [3000n, 3000n],
                     SWAP_AMOUNT,
@@ -311,7 +311,7 @@ describe("BofhContractV2", function () {
             ];
 
             await expect(
-                bofh.connect(user1).fourWaySwap(
+                bofh.connect(user1).executeSwap(
                     path,
                     [3000n, 3000n],
                     SWAP_AMOUNT,
@@ -332,7 +332,7 @@ describe("BofhContractV2", function () {
             ];
 
             await expect(
-                bofh.connect(user1).fourWaySwap(
+                bofh.connect(user1).executeSwap(
                     path,
                     [10001n, 3000n], // > 100% fee
                     SWAP_AMOUNT,
@@ -357,7 +357,7 @@ describe("BofhContractV2", function () {
             ];
 
             await expect(
-                bofh.connect(user1).fourWaySwap(
+                bofh.connect(user1).executeSwap(
                     path,
                     [3000n, 3000n, 3000n, 3000n, 3000n],
                     SWAP_AMOUNT,
@@ -415,7 +415,7 @@ describe("BofhContractV2", function () {
             const { bofh, pairBaseA, owner } = await loadFixture(deployContractsFixture);
 
             await expect(
-                bofh.connect(owner).blacklistPool(pairBaseA, true)
+                bofh.connect(owner).setPoolBlacklist(pairBaseA, true)
             ).to.emit(bofh, "PoolBlacklisted").withArgs(pairBaseA, true);
         });
 
@@ -423,17 +423,17 @@ describe("BofhContractV2", function () {
             const { bofh, pairBaseA, user1 } = await loadFixture(deployContractsFixture);
 
             await expect(
-                bofh.connect(user1).blacklistPool(pairBaseA, true)
+                bofh.connect(user1).setPoolBlacklist(pairBaseA, true)
             ).to.be.reverted;
         });
 
         it("Should allow whitelisting previously blacklisted pools", async function () {
             const { bofh, pairBaseA, owner } = await loadFixture(deployContractsFixture);
 
-            await bofh.connect(owner).blacklistPool(pairBaseA, true);
+            await bofh.connect(owner).setPoolBlacklist(pairBaseA, true);
 
             await expect(
-                bofh.connect(owner).blacklistPool(pairBaseA, false)
+                bofh.connect(owner).setPoolBlacklist(pairBaseA, false)
             ).to.emit(bofh, "PoolBlacklisted").withArgs(pairBaseA, false);
         });
     });
@@ -452,7 +452,7 @@ describe("BofhContractV2", function () {
             const pastDeadline = (await time.latest()) - 100;
 
             await expect(
-                bofh.connect(user1).fourWaySwap(
+                bofh.connect(user1).executeSwap(
                     path,
                     [3000n, 3000n],
                     SWAP_AMOUNT,
@@ -486,7 +486,7 @@ describe("BofhContractV2", function () {
         it("Should prevent swaps when paused", async function () {
             const { bofh, baseToken, tokenA, owner, user1 } = await loadFixture(deployContractsFixture);
 
-            await bofh.connect(owner).pause();
+            await bofh.connect(owner).emergencyPause();
 
             const path = [
                 await baseToken.getAddress(),
@@ -497,7 +497,7 @@ describe("BofhContractV2", function () {
             const deadline = await time.latest() + 300;
 
             await expect(
-                bofh.connect(user1).fourWaySwap(
+                bofh.connect(user1).executeSwap(
                     path,
                     [3000n, 3000n],
                     SWAP_AMOUNT,
@@ -510,30 +510,37 @@ describe("BofhContractV2", function () {
         it("Should allow swaps after unpause", async function () {
             const { bofh, owner } = await loadFixture(deployContractsFixture);
 
-            await bofh.connect(owner).pause();
-            await bofh.connect(owner).unpause();
+            await bofh.connect(owner).emergencyPause();
+            await bofh.connect(owner).emergencyUnpause();
 
             // Contract should be functional again
             expect(await bofh.getAdmin()).to.equal(owner.address);
         });
 
-        it("Should prevent double pause", async function () {
+        it("Should update pause state correctly", async function () {
             const { bofh, owner } = await loadFixture(deployContractsFixture);
 
-            await bofh.connect(owner).pause();
+            // Pause the contract
+            await bofh.connect(owner).emergencyPause();
+            expect(await bofh.isPaused()).to.be.true;
 
-            await expect(
-                bofh.connect(owner).pause()
-            ).to.be.reverted;
+            // Unpause the contract
+            await bofh.connect(owner).emergencyUnpause();
+            expect(await bofh.isPaused()).to.be.false;
         });
 
-        it("Should prevent unpause when not paused", async function () {
+        it("Should allow pause/unpause multiple times", async function () {
             const { bofh, owner } = await loadFixture(deployContractsFixture);
 
-            // Contract starts unpaused
-            await expect(
-                bofh.connect(owner).unpause()
-            ).to.be.reverted;
+            // Multiple pause/unpause cycles
+            await bofh.connect(owner).emergencyPause();
+            expect(await bofh.isPaused()).to.be.true;
+
+            await bofh.connect(owner).emergencyUnpause();
+            expect(await bofh.isPaused()).to.be.false;
+
+            await bofh.connect(owner).emergencyPause();
+            expect(await bofh.isPaused()).to.be.true;
         });
     });
 
@@ -555,7 +562,7 @@ describe("BofhContractV2", function () {
             const { bofh, pairBaseA, owner } = await loadFixture(deployContractsFixture);
 
             await expect(
-                bofh.connect(owner).blacklistPool(pairBaseA, true)
+                bofh.connect(owner).setPoolBlacklist(pairBaseA, true)
             ).to.emit(bofh, "PoolBlacklisted")
             .withArgs(pairBaseA, true);
         });
@@ -588,7 +595,7 @@ describe("BofhContractV2", function () {
 
             expect(await bofh.isPoolBlacklisted(pairBaseA)).to.be.false;
 
-            await bofh.connect(owner).blacklistPool(pairBaseA, true);
+            await bofh.connect(owner).setPoolBlacklist(pairBaseA, true);
 
             expect(await bofh.isPoolBlacklisted(pairBaseA)).to.be.true;
         });

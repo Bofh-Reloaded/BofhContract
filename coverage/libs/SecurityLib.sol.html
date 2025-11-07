@@ -20,24 +20,24 @@
     </h1>
     <div class='clearfix'>
       <div class='fl pad1y space-right2'>
-        <span class="strong">18.52% </span>
+        <span class="strong">48.15% </span>
         <span class="quiet">Statements</span>
-        <span class='fraction'>5/27</span>
+        <span class='fraction'>13/27</span>
       </div>
       <div class='fl pad1y space-right2'>
-        <span class="strong">11.9% </span>
+        <span class="strong">26.19% </span>
         <span class="quiet">Branches</span>
-        <span class='fraction'>5/42</span>
+        <span class='fraction'>11/42</span>
       </div>
       <div class='fl pad1y space-right2'>
-        <span class="strong">12.5% </span>
+        <span class="strong">37.5% </span>
         <span class="quiet">Functions</span>
-        <span class='fraction'>2/16</span>
+        <span class='fraction'>6/16</span>
       </div>
       <div class='fl pad1y space-right2'>
-        <span class="strong">13.04% </span>
+        <span class="strong">39.13% </span>
         <span class="quiet">Lines</span>
-        <span class='fraction'>6/46</span>
+        <span class='fraction'>18/46</span>
       </div>
     </div>
   </div>
@@ -250,7 +250,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">8×</span>
+<span class="cline-any cline-yes">26×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -258,7 +258,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">11×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -270,15 +270,15 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">11×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">11×</span>
+<span class="cline-any cline-yes">11×</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">11×</span>
+<span class="cline-any cline-yes">11×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -312,15 +312,15 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">7×</span>
+<span class="cline-any cline-yes">7×</span>
+<span class="cline-any cline-yes">7×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">4×</span>
+<span class="cline-any cline-yes">4×</span>
+<span class="cline-any cline-yes">4×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -432,8 +432,8 @@ library SecurityLib {
 <span class="cstat-no" title="statement not covered" >        if (!self.operators[msg.sender] &amp;&amp; msg.sender != self.owner) revert Unauthorized();</span>
     }
 &nbsp;
-<span class="fstat-no" title="function not covered" >    function checkNotPaused(SecurityState storage self) internal view {</span>
-<span class="cstat-no" title="statement not covered" >        if (self.paused) revert ContractPaused();</span>
+    function checkNotPaused(SecurityState storage self) internal view {
+        if (self.paused) revert ContractPaused();
     }
 &nbsp;
 <span class="fstat-no" title="function not covered" >    function checkNotLocked(SecurityState storage self) internal view {</span>
@@ -441,14 +441,14 @@ library SecurityLib {
     }
 &nbsp;
     // Reentrancy guard with cooldown
-<span class="fstat-no" title="function not covered" >    function enterProtectedSection(</span>
+    function enterProtectedSection(
         SecurityState storage self,
         bytes4 selector
     ) internal {
-<span class="cstat-no" title="statement not covered" >        if (self.locked) revert ReentrancyGuardError();</span>
+        <span class="missing-if-branch" title="if path not taken" >I</span>if (self.locked) revert ReentrancyGuardError();
         
-<span class="cstat-no" title="statement not covered" >        uint256 cooldown = self.functionCooldowns[selector];</span>
-<span class="cstat-no" title="statement not covered" >        if (cooldown &gt; 0 &amp;&amp; block.timestamp - self.lastActionTimestamp &lt; cooldown) {</span>
+        uint256 cooldown = self.functionCooldowns[selector];
+        <span class="missing-if-branch" title="if path not taken" >I</span>if (cooldown &gt; 0 &amp;&amp; block.timestamp - self.lastActionTimestamp &lt; cooldown) {
             revert ReentrancyGuardError();
         }
         
@@ -486,16 +486,16 @@ library SecurityLib {
     }
 &nbsp;
     // Emergency controls
-<span class="fstat-no" title="function not covered" >    function emergencyPause(SecurityState storage self) internal {</span>
-<span class="cstat-no" title="statement not covered" >        if (msg.sender != self.owner) revert Unauthorized();</span>
+    function emergencyPause(SecurityState storage self) internal {
+        <span class="missing-if-branch" title="if path not taken" >I</span>if (msg.sender != self.owner) revert Unauthorized();
         self.paused = true;
-<span class="cstat-no" title="statement not covered" >        emit SecurityStateChanged(true, self.locked);</span>
+        emit SecurityStateChanged(true, self.locked);
     }
 &nbsp;
-<span class="fstat-no" title="function not covered" >    function emergencyUnpause(SecurityState storage self) internal {</span>
-<span class="cstat-no" title="statement not covered" >        if (msg.sender != self.owner) revert Unauthorized();</span>
+    function emergencyUnpause(SecurityState storage self) internal {
+        <span class="missing-if-branch" title="if path not taken" >I</span>if (msg.sender != self.owner) revert Unauthorized();
         self.paused = false;
-<span class="cstat-no" title="statement not covered" >        emit SecurityStateChanged(false, self.locked);</span>
+        emit SecurityStateChanged(false, self.locked);
     }
 &nbsp;
     // Rate limiting and anomaly detection
@@ -574,7 +574,7 @@ library SecurityLib {
 </div><!-- /wrapper -->
 <div class='footer quiet pad2 space-top1 center small'>
   Code coverage
-  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Fri Nov 07 2025 15:42:12 GMT+0100 (Central European Standard Time)
+  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Fri Nov 07 2025 15:52:38 GMT+0100 (Central European Standard Time)
 </div>
 </div>
 <script src="../prettify.js"></script>
