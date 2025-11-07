@@ -4,10 +4,29 @@ pragma solidity >=0.8.10;
 import "./MathLib.sol";
 import "../interfaces/ISwapInterfaces.sol";
 
+/// @title PoolLib - Liquidity Pool Analysis and Management Library
+/// @author Bofh Team
+/// @notice Provides advanced pool state analysis, price impact calculations, and swap optimization
+/// @dev Implements Constant Product Market Maker (CPMM) analysis with volatility tracking
+/// @custom:security All functions validate pool liquidity and price impact constraints
 library PoolLib {
+    /// @notice Base precision for calculations (1,000,000)
     uint256 private constant PRECISION = 1e6;
+
+    /// @notice Minimum required pool liquidity for safe swaps (1,000 tokens)
     uint256 private constant MIN_POOL_LIQUIDITY = 1000;
 
+    /// @notice Pool state snapshot containing reserves, metrics, and historical data
+    /// @dev Used for multi-step swap analysis and risk assessment
+    /// @custom:field reserveIn Input token reserve in the pool
+    /// @custom:field reserveOut Output token reserve in the pool
+    /// @custom:field sellingToken0 True if selling token0 for token1, false otherwise
+    /// @custom:field tokenOut Address of the output token
+    /// @custom:field priceImpact Calculated price impact percentage (scaled by PRECISION)
+    /// @custom:field depth Pool depth metric: √(reserveIn × reserveOut)
+    /// @custom:field volatility Exponential moving average of price changes
+    /// @custom:field lastUpdateTimestamp Last time pool reserves were updated
+    /// @custom:field volumeAccumulator Accumulated trading volume for analytics
     struct PoolState {
         uint256 reserveIn;
         uint256 reserveOut;
@@ -20,6 +39,13 @@ library PoolLib {
         uint256 volumeAccumulator;
     }
 
+    /// @notice Swap operation parameters for validation and optimization
+    /// @dev Contains all user-specified constraints for swap execution
+    /// @custom:field amountIn Amount of input tokens to swap
+    /// @custom:field minAmountOut Minimum acceptable output tokens (slippage protection)
+    /// @custom:field maxPriceImpact Maximum allowed price impact (scaled by PRECISION)
+    /// @custom:field deadline Transaction deadline (Unix timestamp)
+    /// @custom:field maxSlippage Maximum allowed slippage percentage (scaled by PRECISION)
     struct SwapParams {
         uint256 amountIn;
         uint256 minAmountOut;
@@ -28,7 +54,16 @@ library PoolLib {
         uint256 maxSlippage;
     }
 
-    // Enhanced pool analysis with volume tracking and volatility estimation
+    /// @notice Analyze pool state and calculate advanced liquidity metrics
+    /// @dev Fetches pool reserves, identifies token direction, and calculates depth/volatility/price impact
+    /// @dev Validates minimum liquidity requirements before returning state
+    /// @param pool Address of the Uniswap V2-style pair contract
+    /// @param tokenIn Address of the input token being sold
+    /// @param amountIn Amount of input tokens for the swap
+    /// @param timestamp Current block timestamp for volatility calculation
+    /// @return state Complete pool state including reserves, metrics, and calculated values
+    /// @custom:security Reverts if pool liquidity < MIN_POOL_LIQUIDITY for either token
+    /// @custom:example For BASE/TKNA pool with 10k BASE and 5k TKNA, depth = √(10k×5k) ≈ 7071
     function analyzePool(
         address pool,
         address tokenIn,
@@ -69,7 +104,14 @@ library PoolLib {
         return state;
     }
 
-    // Enhanced price impact calculation with slippage protection
+    /// @notice Calculate price impact percentage for a given swap amount
+    /// @dev Uses CPMM invariant (x×y=k) to compute price change: impact = (oldPrice - newPrice) / oldPrice
+    /// @dev Price impact represents the percentage deviation from the current pool price
+    /// @param amountIn Amount of input tokens for the swap
+    /// @param pool Current pool state with reserves
+    /// @return Price impact as percentage scaled by PRECISION (e.g., 50000 = 5%)
+    /// @custom:math oldPrice = reserveOut/reserveIn, newPrice = newReserveOut/newReserveIn
+    /// @custom:example 100 tokens into 10k/5k pool: newReserveOut ≈ 4950, impact ≈ 1%
     function calculatePriceImpact(
         uint256 amountIn,
         PoolState memory pool
@@ -89,7 +131,15 @@ library PoolLib {
         return ((oldPrice - newPrice) * PRECISION) / oldPrice;
     }
 
-    // Volatility calculation using exponential moving average
+    /// @notice Calculate pool volatility using exponential moving average (EMA)
+    /// @dev Tracks price changes over time with exponential decay: EMA = volatility×decay + priceChange×(1-decay)
+    /// @dev Returns minimal volatility (1%) for fresh pools or same-block swaps
+    /// @param pool Current pool state with existing volatility and reserves
+    /// @param lastTimestamp Previous reserve update timestamp
+    /// @param currentTimestamp Current block timestamp
+    /// @return Volatility as percentage scaled by PRECISION (e.g., 10000 = 1%)
+    /// @custom:math decay = 2^(timeDelta / 1 day), priceChange = |currentPrice - lastVolatility|
+    /// @custom:security Returns existing volatility if no time has passed to prevent manipulation
     function calculateVolatility(
         PoolState memory pool,
         uint256 lastTimestamp,
@@ -125,7 +175,15 @@ library PoolLib {
         return (pool.volatility * decay + priceChange * (PRECISION - decay)) / PRECISION;
     }
 
-    // Calculate optimal swap amounts considering pool depth and volatility
+    /// @notice Calculate optimal swap amount considering pool depth, volatility, and price impact constraints
+    /// @dev Uses square root formula to find optimal amount, then adjusts for price impact and slippage
+    /// @dev Formula: optimalAmount = √((amountIn × reserveIn × PRECISION) / (depth × (PRECISION + volatility)))
+    /// @param pool Current pool state with reserves, depth, and volatility
+    /// @param params Swap parameters including amountIn, minAmountOut, maxPriceImpact, maxSlippage
+    /// @return optimalAmount Optimized amount to swap (may be less than amountIn to meet constraints)
+    /// @return expectedOutput Expected output tokens after fees and slippage
+    /// @custom:math Minimizes slippage while respecting maxPriceImpact constraint via Lagrange multipliers
+    /// @custom:security Reverts if expectedOutput < minAmountOut (slippage protection)
     function calculateOptimalSwapAmount(
         PoolState memory pool,
         SwapParams memory params
@@ -154,7 +212,15 @@ library PoolLib {
         return (optimalAmount, expectedOutput);
     }
 
-    // Validate pool state and parameters
+    /// @notice Validate swap parameters and pool conditions before execution
+    /// @dev Performs comprehensive checks: deadline, amount, price impact, volatility, and depth
+    /// @dev Max allowed constraints: 10% price impact, 50% volatility, 10×MIN_POOL_LIQUIDITY depth
+    /// @param pool Current pool state to validate
+    /// @param params Swap parameters to check against constraints
+    /// @return Always returns true if all validations pass (reverts otherwise)
+    /// @custom:security Multiple revert conditions protect against invalid swaps:
+    /// @custom:security - Expired deadlines, zero amounts, excessive price impact
+    /// @custom:security - High volatility pools (>50%), shallow pools (<10k tokens)
     function validateSwap(
         PoolState memory pool,
         SwapParams memory params

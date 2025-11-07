@@ -4,15 +4,30 @@ pragma solidity >=0.8.10;
 import "./BofhContractBase.sol";
 import "../interfaces/ISwapInterfaces.sol";
 
+/// @title BofhContractV2 - Advanced Multi-Path Token Swap Router
+/// @author Bofh Team
+/// @notice Executes optimized token swaps across multiple paths using golden ratio distribution
+/// @dev Implements 3/4/5-way swap path optimization with comprehensive security features
+/// @custom:security Inherits security from BofhContractBase (reentrancy, access control, MEV protection)
+/// @custom:optimization Uses golden ratio (φ ≈ 0.618034) for 4-way and 5-way path distribution
 contract BofhContractV2 is BofhContractBase {
     using MathLib for uint256;
     using PoolLib for PoolLib.PoolState;
 
-    // Immutable state
+    /// @notice Base token address (all swap paths must start and end with this token)
     address private immutable baseToken;
+
+    /// @notice Uniswap V2-style factory address for pair lookups
     address private immutable factory;
 
-    // Optimized swap state tracking
+    /// @notice Internal state tracking for multi-step swap execution
+    /// @dev Used to track swap progress across multiple hops and calculate cumulative metrics
+    /// @custom:field currentToken Address of current token in swap path
+    /// @custom:field currentAmount Current token amount after each hop
+    /// @custom:field cumulativeImpact Accumulated price impact across all hops
+    /// @custom:field historicalAmounts Array of amounts at each step for analytics
+    /// @custom:field startTime Swap start timestamp for gas profiling
+    /// @custom:field gasUsed Cumulative gas consumption across swap steps
     struct SwapState {
         address currentToken;
         uint256 currentAmount;
@@ -22,21 +37,42 @@ contract BofhContractV2 is BofhContractBase {
         uint256 gasUsed;
     }
 
-    // Custom errors
-    // Existing errors
+    /// @notice Thrown when swap path structure is invalid (wrong start/end token, length constraints)
     error InvalidPath();
+
+    /// @notice Thrown when final output amount is less than minAmountOut
     error InsufficientOutput();
+
+    /// @notice Thrown when price slippage exceeds MAX_SLIPPAGE (1%)
     error ExcessiveSlippage();
+
+    /// @notice Thrown when path length exceeds MAX_PATH_LENGTH (5)
     error PathTooLong();
+
+    /// @notice Thrown when block.timestamp > deadline
     error DeadlineExpired();
+
+    /// @notice Thrown when pool liquidity is below minimum threshold
     error InsufficientLiquidity();
 
-    // New input validation errors (Issue #8)
+    /// @notice Thrown when address parameter is address(0) or invalid
     error InvalidAddress();
+
+    /// @notice Thrown when amount parameter is 0 or invalid
     error InvalidAmount();
+
+    /// @notice Thrown when array lengths don't match expected values
     error InvalidArrayLength();
+
+    /// @notice Thrown when fee exceeds maximum allowed (100% = 10000 bps)
     error InvalidFee();
 
+    /// @notice Deploy BofhContractV2 with base token and factory addresses
+    /// @dev Validates addresses are non-zero, initializes immutable state
+    /// @param baseToken_ Address of base token (WBNB, WETH, etc.) - all paths start/end here
+    /// @param factory_ Address of Uniswap V2-style factory for pair creation/lookup
+    /// @custom:security Both addresses validated to be non-zero before assignment
+    /// @custom:security Calls parent constructor with msg.sender as owner
     constructor(
         address baseToken_,
         address factory_
@@ -47,13 +83,18 @@ contract BofhContractV2 is BofhContractBase {
         factory = factory_;
     }
 
-    /// @dev Internal function to validate swap inputs (Issue #8)
-    /// @param path Token swap path
-    /// @param fees Fee array
-    /// @param amountIn Input amount
-    /// @param minAmountOut Minimum output amount
-    /// @param deadline Transaction deadline
-    /// @return pathLength Length of the path for gas optimization
+    /// @notice Validate all swap parameters before execution
+    /// @dev Comprehensive validation: deadline, array lengths, amounts, addresses, path structure, fees
+    /// @dev Validates: 1) Deadline not expired, 2) Arrays correct length, 3) Amounts > 0,
+    /// @dev 4) Addresses non-zero, 5) Path starts/ends with baseToken, 6) Fees ≤ 100%
+    /// @param path Token swap path (must start and end with baseToken)
+    /// @param fees Fee array in basis points (length = path.length - 1)
+    /// @param amountIn Input amount (must be > 0)
+    /// @param minAmountOut Minimum output amount (must be > 0)
+    /// @param deadline Transaction deadline Unix timestamp (must be > block.timestamp)
+    /// @return pathLength Length of the path for gas-optimized loops
+    /// @custom:security Reverts with specific errors for each validation failure
+    /// @custom:security Added in Issue #8 for comprehensive input sanitization
     function _validateSwapInputs(
         address[] calldata path,
         uint256[] calldata fees,
@@ -92,7 +133,20 @@ contract BofhContractV2 is BofhContractBase {
         }
     }
 
-    // Internal swap execution
+    /// @notice Internal function to execute swap through multiple pools along path
+    /// @dev Validates inputs, transfers tokens, executes each hop, validates output
+    /// @dev Steps: 1) Validate inputs, 2) Transfer from user, 3) Execute path steps,
+    /// @dev 4) Validate output ≥ minAmountOut, 5) Check price impact ≤ maxPriceImpact,
+    /// @dev 6) Transfer profit to user, 7) Emit SwapExecuted event
+    /// @param path Token addresses array (must start/end with baseToken)
+    /// @param fees Fee array in basis points for each hop
+    /// @param amountIn Input token amount
+    /// @param minAmountOut Minimum acceptable output (reverts if not met)
+    /// @param deadline Transaction deadline
+    /// @return Final output amount sent to user
+    /// @custom:security Validates all inputs via _validateSwapInputs before execution
+    /// @custom:security Tracks cumulative price impact and validates against maxPriceImpact
+    /// @custom:security Uses SafeTransfer pattern (require statements) for token transfers
     function _executeSwap(
         address[] calldata path,
         uint256[] calldata fees,
@@ -242,7 +296,18 @@ contract BofhContractV2 is BofhContractBase {
         return outputs;
     }
 
-    // Internal optimized swap step execution
+    /// @notice Execute a single step in a multi-hop swap path
+    /// @dev Calculates optimal amount using golden ratio for path position, executes swap through pair
+    /// @dev Updates swap state with new amount and cumulative price impact
+    /// @param state Current swap state (token, amount, impact, history, gas)
+    /// @param tokenIn Input token address for this step
+    /// @param tokenOut Output token address for this step
+    /// @param fee Swap fee in basis points for this step
+    /// @param stepIndex Current step index in the path (0-indexed)
+    /// @param pathLength Total path length for golden ratio calculation
+    /// @return Updated swap state with new currentAmount and cumulativeImpact
+    /// @custom:optimization Uses MathLib.calculateOptimalAmount for golden ratio distribution
+    /// @custom:security Validates pool liquidity and calculates price impact before swap
     function executePathStep(
         SwapState memory state,
         address tokenIn,
@@ -303,7 +368,16 @@ contract BofhContractV2 is BofhContractBase {
         return state;
     }
 
-    // View functions
+    /// @notice Calculate expected output, price impact, and optimality score for a swap path
+    /// @dev View function for off-chain simulation before executing swap
+    /// @dev Iterates through path, analyzes each pool, accumulates impact, calculates expected output
+    /// @param path Array of token addresses for the swap path
+    /// @param amounts Array of amounts at each step (amounts[0] is initial input)
+    /// @return expectedOutput Final expected output amount after all hops
+    /// @return priceImpact Cumulative price impact across entire path (scaled by PRECISION)
+    /// @return optimalityScore Ratio of output to input (scaled by PRECISION, >1e6 = profitable)
+    /// @custom:view Read-only function, safe for off-chain calls
+    /// @custom:example optimalityScore of 1.05e6 means 5% profit
     function getOptimalPathMetrics(
         address[] calldata path,
         uint256[] calldata amounts

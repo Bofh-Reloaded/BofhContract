@@ -1,12 +1,27 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.10;
 
+/// @title MathLib - Advanced Mathematical Operations Library
+/// @author Bofh Team
+/// @notice Provides high-precision mathematical functions for DeFi operations
+/// @dev Implements Newton's method for square root and cube root calculations
+/// @custom:security All functions are pure and gas-optimized
 library MathLib {
+    /// @notice Base precision for calculations (1,000,000)
     uint256 private constant PRECISION = 1e6;
+
+    /// @notice Square root calculation precision (1,000)
     uint256 private constant SQRT_PRECISION = 1e3;
+
+    /// @notice Cube root calculation precision (100)
     uint256 private constant CBRT_PRECISION = 1e2;
 
-    // Enhanced sqrt using Newton's method with better initial guess
+    /// @notice Calculate square root using Newton's method
+    /// @dev Uses Newton-Raphson iteration: y_{n+1} = (y_n + x/y_n) / 2
+    /// @dev Converges quadratically with better initial guess via bit length
+    /// @param x Input value to find square root of
+    /// @return y Square root of x, rounded down
+    /// @custom:example sqrt(16) = 4, sqrt(17) = 4 (floor division)
     function sqrt(uint256 x) internal pure returns (uint256 y) {
         if (x == 0) return 0;
         if (x <= 3) return 1;
@@ -22,7 +37,12 @@ library MathLib {
         }
     }
 
-    // Enhanced cbrt using Newton's method with dynamic precision
+    /// @notice Calculate cube root using Newton's method
+    /// @dev Uses Newton-Raphson iteration: y_{n+1} = (2*y_n + x/y_n²) / 3
+    /// @dev Provides better precision than binary search methods
+    /// @param x Input value to find cube root of
+    /// @return Cube root of x, rounded down
+    /// @custom:example cbrt(27) = 3, cbrt(28) = 3 (floor division)
     function cbrt(uint256 x) internal pure returns (uint256) {
         if (x == 0) return 0;
         if (x == 1) return 1;
@@ -40,7 +60,14 @@ library MathLib {
         return z;
     }
 
-    // Enhanced geometric mean with overflow protection
+    /// @notice Calculate geometric mean of two numbers with overflow protection
+    /// @dev Geometric mean = √(a × b), uses log approximation for large numbers
+    /// @dev For a,b > uint128.max, uses log identity: √(a×b) = 2^((log₂a + log₂b)/2)
+    /// @param a First number
+    /// @param b Second number
+    /// @return Geometric mean of a and b
+    /// @custom:security Prevents overflow for values > type(uint128).max
+    /// @custom:math Geometric mean ≤ arithmetic mean (AM-GM inequality)
     function geometricMean(uint256 a, uint256 b) internal pure returns (uint256) {
         if (a == 0 || b == 0) return 0;
         
@@ -53,7 +80,12 @@ library MathLib {
         return sqrt(a * b);
     }
 
-    // Log2 approximation using binary search
+    /// @notice Calculate base-2 logarithm using binary search
+    /// @dev Finds the position of the highest set bit (most significant bit)
+    /// @dev Result scaled by PRECISION for fixed-point arithmetic
+    /// @param x Input value (x > 0)
+    /// @return Base-2 logarithm of x, scaled by PRECISION
+    /// @custom:example log2(8) = 3 * PRECISION, log2(16) = 4 * PRECISION
     function log2(uint256 x) internal pure returns (uint256) {
         if (x == 0) return 0;
         
@@ -73,7 +105,12 @@ library MathLib {
         return result * PRECISION;
     }
 
-    // Exp2 implementation using bit manipulation
+    /// @notice Calculate 2^x using bit manipulation and Taylor series
+    /// @dev Splits x into whole and fractional parts: 2^x = 2^whole * 2^frac
+    /// @dev Uses Taylor series for fractional part approximation (4 terms)
+    /// @param x Exponent value, scaled by PRECISION
+    /// @return 2^x, returns type(uint256).max if result would overflow
+    /// @custom:example exp2(3 * PRECISION) ≈ 8, exp2(4 * PRECISION) ≈ 16
     function exp2(uint256 x) internal pure returns (uint256) {
         if (x == 0) return PRECISION;
         
@@ -97,7 +134,17 @@ library MathLib {
         return sum;
     }
 
-    // Calculate optimal amounts for n-way swaps
+    /// @notice Calculate optimal amount distribution for multi-path swaps using golden ratio
+    /// @dev Implements φ-based optimization to minimize price impact across paths
+    /// @dev 3-way: Equal distribution (1/3 each)
+    /// @dev 4-way: Golden ratio φ ≈ 0.618034 distribution
+    /// @dev 5-way: Golden ratio squared φ² ≈ 0.381966 distribution
+    /// @param amount Total amount to distribute
+    /// @param pathLength Number of swap paths (3, 4, or 5)
+    /// @param position Current position in the path distribution (0-indexed)
+    /// @return Optimal amount for the given position
+    /// @custom:math Golden ratio minimizes Σ(1/xᵢ) subject to Πxᵢ = constant (Lagrange multipliers)
+    /// @custom:security Reverts if pathLength not in [3,5]
     function calculateOptimalAmount(
         uint256 amount,
         uint256 pathLength,

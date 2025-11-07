@@ -6,54 +6,104 @@ import "../libs/MathLib.sol";
 import "../libs/PoolLib.sol";
 import "../interfaces/ISwapInterfaces.sol";
 
+/// @title BofhContractBase - Abstract Base Contract with Security and Risk Management
+/// @author Bofh Team
+/// @notice Provides security features, risk parameters, and MEV protection for swap contracts
+/// @dev Abstract contract inherited by BofhContractV2, implements security primitives and modifiers
+/// @custom:security Implements reentrancy protection, access control, pause mechanism, and MEV protection
+/// @custom:risk Configurable risk parameters: maxTradeVolume, minPoolLiquidity, maxPriceImpact, sandwichProtection
 abstract contract BofhContractBase {
     using SecurityLib for SecurityLib.SecurityState;
     using PoolLib for PoolLib.PoolState;
 
-    // Security and state management
+    /// @notice Security state containing owner, pause status, lock, and access control
     SecurityLib.SecurityState internal securityState;
-    
-    // Constants
+
+    /// @notice Base precision for all percentage calculations (1,000,000 = 100%)
     uint256 internal constant PRECISION = 1e6;
+
+    /// @notice Maximum allowed slippage percentage (1% = 10,000)
     uint256 internal constant MAX_SLIPPAGE = PRECISION / 100; // 1%
+
+    /// @notice Minimum optimality threshold for swap paths (50% = 500,000)
     uint256 internal constant MIN_OPTIMALITY = PRECISION / 2; // 50%
+
+    /// @notice Maximum swap path length (6 tokens = 5 hops for 5-way swaps)
     uint256 internal constant MAX_PATH_LENGTH = 6; // Supports up to 5-way swaps (6 tokens = 5 hops)
-    
-    // Risk management
+
+    /// @notice Mapping of blacklisted pool addresses (true = blacklisted, cannot be used)
     mapping(address => bool) public blacklistedPools;
+
+    /// @notice Maximum trade volume per swap (prevents large trades that could destabilize pools)
     uint256 public maxTradeVolume;
+
+    /// @notice Minimum required pool liquidity (swaps revert if pool liquidity below this)
     uint256 public minPoolLiquidity;
+
+    /// @notice Maximum allowed price impact percentage (swaps revert if exceeded)
     uint256 public maxPriceImpact;
+
+    /// @notice Sandwich attack protection in basis points (additional slippage check)
     uint256 public sandwichProtectionBips;
 
-    // MEV Protection (Issue #9)
+    /// @notice Per-user rate limiting state for MEV protection
+    /// @dev Tracks transactions per block and last transaction timestamp
+    /// @custom:field lastBlockNumber Last block number user transacted
+    /// @custom:field transactionsThisBlock Count of transactions in current block
+    /// @custom:field lastTransactionTimestamp Timestamp of user's last transaction
     struct RateLimitState {
         uint256 lastBlockNumber;
         uint256 transactionsThisBlock;
         uint256 lastTransactionTimestamp;
     }
+
+    /// @notice Per-user rate limit tracking (address => rate limit state)
     mapping(address => RateLimitState) private rateLimits;
 
-    // MEV Protection Configuration
+    /// @notice MEV protection enabled flag (true = active, false = disabled)
     bool public mevProtectionEnabled;
+
+    /// @notice Maximum transactions allowed per block per user (flash loan detection)
     uint256 public maxTxPerBlock = 3;
+
+    /// @notice Minimum delay required between transactions in seconds (rate limiting)
     uint256 public minTxDelay = 12; // seconds
 
-    // MEV Protection Events
+    /// @notice Emitted when MEV protection configuration is updated
+    /// @param enabled New enabled status
+    /// @param maxTxPerBlock New maximum transactions per block
+    /// @param minTxDelay New minimum delay between transactions
     event MEVProtectionUpdated(bool enabled, uint256 maxTxPerBlock, uint256 minTxDelay);
 
-    // MEV Protection Errors
+    /// @notice Thrown when flash loan attack is detected (too many transactions per block)
     error FlashLoanDetected();
+
+    /// @notice Thrown when user exceeds transaction rate limit (transactions too frequent)
     error RateLimitExceeded();
     
-    // Events
+    /// @notice Emitted when pool blacklist status changes
+    /// @param pool Address of the pool
+    /// @param blacklisted New blacklist status (true = blacklisted, false = whitelisted)
     event PoolBlacklisted(address indexed pool, bool blacklisted);
+
+    /// @notice Emitted when risk management parameters are updated
+    /// @param maxVolume New maximum trade volume
+    /// @param minLiquidity New minimum pool liquidity
+    /// @param maxImpact New maximum price impact
+    /// @param sandwichProtection New sandwich protection in basis points
     event RiskParamsUpdated(
         uint256 maxVolume,
         uint256 minLiquidity,
         uint256 maxImpact,
         uint256 sandwichProtection
     );
+
+    /// @notice Emitted when a swap is successfully executed
+    /// @param initiator Address that initiated the swap
+    /// @param pathLength Number of tokens in the swap path
+    /// @param inputAmount Amount of input tokens
+    /// @param outputAmount Amount of output tokens received
+    /// @param priceImpact Cumulative price impact of the swap
     event SwapExecuted(
         address indexed initiator,
         uint256 pathLength,
@@ -61,26 +111,37 @@ abstract contract BofhContractBase {
         uint256 outputAmount,
         uint256 priceImpact
     );
-    
-    // Modifiers
+
+    /// @notice Modifier to restrict function access to contract owner only
+    /// @dev Uses SecurityLib.checkOwner, reverts with Unauthorized if not owner
     modifier onlyOwner() {
         securityState.checkOwner();
         _;
     }
-    
+
+    /// @notice Modifier to prevent execution when contract is paused
+    /// @dev Uses SecurityLib.checkNotPaused, reverts with ContractPaused if paused
     modifier whenNotPaused() {
         securityState.checkNotPaused();
         _;
     }
-    
+
+    /// @notice Modifier to prevent reentrancy attacks
+    /// @dev Uses SecurityLib enter/exitProtectedSection with function selector
+    /// @dev Locks before execution, unlocks after, reverts if already locked
     modifier nonReentrant() {
         securityState.enterProtectedSection(msg.sig);
         _;
         securityState.exitProtectedSection();
     }
 
-    /// @dev MEV protection modifier (Issue #9)
-    /// @notice Prevents flash loan attacks and rate limits transactions (if enabled)
+    /// @notice Modifier to prevent MEV attacks via flash loan detection and rate limiting
+    /// @dev Only enforces checks when mevProtectionEnabled = true
+    /// @dev Flash loan detection: Counts transactions per block, reverts if > maxTxPerBlock
+    /// @dev Rate limiting: Enforces minTxDelay seconds between consecutive transactions
+    /// @dev Added in Issue #9 for MEV protection
+    /// @custom:security Reverts with FlashLoanDetected if too many txs in one block
+    /// @custom:security Reverts with RateLimitExceeded if transactions too frequent
     modifier antiMEV() {
         if (mevProtectionEnabled) {
             RateLimitState storage limit = rateLimits[msg.sender];
@@ -110,13 +171,18 @@ abstract contract BofhContractBase {
         }
     }
 
-    // Constructor
+    /// @notice Initialize base contract with owner and base token, set default risk parameters
+    /// @dev Validates addresses are non-zero, sets conservative default risk parameters
+    /// @param owner_ Address of contract owner (receives full admin permissions)
+    /// @param baseToken_ Address of base token for swaps (not used in base, required by derived)
+    /// @custom:security Validates both addresses != address(0)
+    /// @custom:defaults maxTradeVolume=1000e6, minPoolLiquidity=100e6, maxPriceImpact=10%, sandwichProtection=0.5%
     constructor(address owner_, address baseToken_) {
         require(owner_ != address(0), "Invalid owner");
         require(baseToken_ != address(0), "Invalid base token");
-        
+
         securityState.owner = owner_;
-        
+
         // Initialize with conservative default values
         maxTradeVolume = 1000 * PRECISION;
         minPoolLiquidity = 100 * PRECISION;
@@ -124,7 +190,14 @@ abstract contract BofhContractBase {
         sandwichProtectionBips = 50; // 0.5%
     }
 
-    // Risk management functions
+    /// @notice Update risk management parameters
+    /// @dev Only callable by owner, validates maxPriceImpact ≤ 20% and sandwichProtection ≤ 1%
+    /// @param _maxTradeVolume New maximum trade volume per swap
+    /// @param _minPoolLiquidity New minimum required pool liquidity
+    /// @param _maxPriceImpact New maximum allowed price impact (max 20% = PRECISION/5)
+    /// @param _sandwichProtectionBips New sandwich protection in basis points (max 100 = 1%)
+    /// @custom:security Validates price impact and sandwich protection within safe limits
+    /// @custom:security Emits RiskParamsUpdated event for off-chain tracking
     function updateRiskParams(
         uint256 _maxTradeVolume,
         uint256 _minPoolLiquidity,
@@ -147,6 +220,12 @@ abstract contract BofhContractBase {
         );
     }
     
+    /// @notice Blacklist or whitelist a specific pool address
+    /// @dev Only callable by owner, prevents swaps through blacklisted pools
+    /// @param pool Address of the pool to blacklist/whitelist
+    /// @param blacklisted True to blacklist (block swaps), false to whitelist (allow swaps)
+    /// @custom:security Validates pool address != address(0)
+    /// @custom:security Emits PoolBlacklisted event for off-chain tracking
     function setPoolBlacklist(
         address pool,
         bool blacklisted
@@ -175,20 +254,39 @@ abstract contract BofhContractBase {
         emit MEVProtectionUpdated(enabled, _maxTxPerBlock, _minTxDelay);
     }
 
-    // Emergency functions
+    /// @notice Pause all contract operations in emergency situations
+    /// @dev Only callable by owner, sets paused flag via SecurityLib
+    /// @dev Blocks all functions with whenNotPaused modifier
+    /// @custom:security Use when: exploit detected, critical bug found, oracle compromise
+    /// @custom:security Emits SecurityStateChanged event via SecurityLib
     function emergencyPause() external onlyOwner {
         securityState.emergencyPause();
     }
-    
+
+    /// @notice Resume contract operations after emergency is resolved
+    /// @dev Only callable by owner, clears paused flag via SecurityLib
+    /// @dev Allows functions with whenNotPaused to execute again
+    /// @custom:security Only unpause after verifying issue is fully resolved
+    /// @custom:security Emits SecurityStateChanged event via SecurityLib
     function emergencyUnpause() external onlyOwner {
         securityState.emergencyUnpause();
     }
-    
-    // Access control
+
+    /// @notice Transfer contract ownership to a new address
+    /// @dev Only callable by current owner, delegates to SecurityLib.transferOwnership
+    /// @param newOwner Address of new owner (must not be address(0))
+    /// @custom:security Validates newOwner != address(0) in SecurityLib
+    /// @custom:security Emits OwnershipTransferred event via SecurityLib
     function transferOwnership(address newOwner) external onlyOwner {
         securityState.transferOwnership(newOwner);
     }
-    
+
+    /// @notice Grant or revoke operator status for an address
+    /// @dev Only callable by owner, delegates to SecurityLib.setOperator
+    /// @param operator Address to grant/revoke operator status
+    /// @param status True to grant operator role, false to revoke
+    /// @custom:security Validates operator != address(0) in SecurityLib
+    /// @custom:security Emits OperatorStatusChanged event via SecurityLib
     function setOperator(
         address operator,
         bool status
