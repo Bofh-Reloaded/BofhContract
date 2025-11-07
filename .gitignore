@@ -198,5 +198,8 @@ artifacts/
 cache/
 typechain-types/
 
+# Security scan reports
+reports/
+
 # Development workflow tools (nested git repo)
 dev-prompts/

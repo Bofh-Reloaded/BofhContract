@@ -1,0 +1,192 @@
+name: Security Audit
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  schedule:
+    # Run security audit every Monday at 9 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+jobs:
+  slither-full:
+    name: Slither Full Analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Slither
+        run: |
+          pip install slither-analyzer
+          slither --version
+
+      - name: Run Slither (Full Analysis)
+        run: |
+          slither . \
+            --filter-paths "node_modules|test|.variants" \
+            --exclude naming-convention,solc-version \
+            --json slither-full-report.json \
+            --sarif slither-results.sarif \
+            || true
+
+      - name: Upload SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: slither-results.sarif
+          category: slither
+        continue-on-error: true
+
+      - name: Parse Slither Results
+        run: |
+          echo "## Slither Analysis Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f slither-full-report.json ]; then
+            # Count issues by severity
+            CRITICAL=$(jq '[.results.detectors[] | select(.impact == "Critical")] | length' slither-full-report.json)
+            HIGH=$(jq '[.results.detectors[] | select(.impact == "High")] | length' slither-full-report.json)
+            MEDIUM=$(jq '[.results.detectors[] | select(.impact == "Medium")] | length' slither-full-report.json)
+            LOW=$(jq '[.results.detectors[] | select(.impact == "Low")] | length' slither-full-report.json)
+            INFO=$(jq '[.results.detectors[] | select(.impact == "Informational")] | length' slither-full-report.json)
+
+            echo "| Severity | Count |" >> $GITHUB_STEP_SUMMARY
+            echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Critical | $CRITICAL |" >> $GITHUB_STEP_SUMMARY
+            echo "| High | $HIGH |" >> $GITHUB_STEP_SUMMARY
+            echo "| Medium | $MEDIUM |" >> $GITHUB_STEP_SUMMARY
+            echo "| Low | $LOW |" >> $GITHUB_STEP_SUMMARY
+            echo "| Informational | $INFO |" >> $GITHUB_STEP_SUMMARY
+
+            # Fail if critical or high severity issues found
+            if [ "$CRITICAL" -gt "0" ] || [ "$HIGH" -gt "0" ]; then
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "❌ **Critical or High severity issues detected!**" >> $GITHUB_STEP_SUMMARY
+              exit 1
+            else
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "✅ **No critical or high severity issues found**" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "⚠️ Slither report not generated" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+      - name: Upload Slither report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: slither-full-report
+          path: |
+            slither-full-report.json
+            slither-results.sarif
+          retention-days: 90
+
+  npm-audit:
+    name: NPM Dependency Audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Run npm audit
+        run: |
+          npm audit --json > npm-audit-report.json || true
+          npm audit --audit-level=high || echo "⚠️ High severity vulnerabilities found"
+        continue-on-error: true
+
+      - name: Parse npm audit results
+        run: |
+          echo "## NPM Audit Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f npm-audit-report.json ]; then
+            CRITICAL=$(jq '.metadata.vulnerabilities.critical' npm-audit-report.json)
+            HIGH=$(jq '.metadata.vulnerabilities.high' npm-audit-report.json)
+            MODERATE=$(jq '.metadata.vulnerabilities.moderate' npm-audit-report.json)
+            LOW=$(jq '.metadata.vulnerabilities.low' npm-audit-report.json)
+
+            echo "| Severity | Count |" >> $GITHUB_STEP_SUMMARY
+            echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Critical | $CRITICAL |" >> $GITHUB_STEP_SUMMARY
+            echo "| High | $HIGH |" >> $GITHUB_STEP_SUMMARY
+            echo "| Moderate | $MODERATE |" >> $GITHUB_STEP_SUMMARY
+            echo "| Low | $LOW |" >> $GITHUB_STEP_SUMMARY
+
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "ℹ️ Note: Many vulnerabilities are in Truffle's legacy dependencies and will be resolved by Hardhat migration (SPRINT 2)" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload npm audit report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: npm-audit-report
+          path: npm-audit-report.json
+          retention-days: 30
+
+  mythril:
+    name: Mythril Analysis (Optional)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    continue-on-error: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Mythril
+        run: |
+          pip install mythril
+          myth version
+
+      - name: Run Mythril (BofhContractV2)
+        run: |
+          myth analyze contracts/main/BofhContractV2.sol \
+            --solc-json mythril-config.json \
+            --execution-timeout 300 \
+            || echo "⚠️ Mythril analysis incomplete (symbolic execution is slow)"
+        continue-on-error: true
+
+      - name: Note about Mythril
+        run: |
+          echo "## Mythril Analysis" >> $GITHUB_STEP_SUMMARY
+          echo "ℹ️ Mythril performs symbolic execution which is slow and resource-intensive." >> $GITHUB_STEP_SUMMARY
+          echo "This job is optional and runs only on manual workflow dispatch." >> $GITHUB_STEP_SUMMARY

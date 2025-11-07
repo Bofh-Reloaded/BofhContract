@@ -8,6 +8,8 @@
     "coverage": "hardhat coverage",
     "deploy:testnet": "hardhat run scripts/deploy.js --network bscTestnet",
     "verify": "hardhat verify --network bscTestnet",
+    "security": "./scripts/security-scan.sh",
+    "security:install": "pip install slither-analyzer",
     "migrate:truffle": "truffle migrate --network bscTestnet --reset",
     "compile:truffle": "truffle compile --network bscTestnet",
     "test:truffle": "truffle test"
