@@ -2,6 +2,7 @@
 pragma solidity >=0.8.10;
 
 import "./MathLib.sol";
+import "../interfaces/ISwapInterfaces.sol";
 
 library PoolLib {
     uint256 private constant PRECISION = 1e6;
@@ -159,5 +160,3 @@ library PoolLib {
         return true;
     }
 }
-
-import "./interfaces/ISwapInterfaces.sol";

@@ -44,16 +44,18 @@ contract BofhContractV2 is BofhContractBase {
     ) internal returns (uint256) {
         // Validate inputs
         if (block.timestamp > deadline) revert DeadlineExpired();
-        if (path.length < 2 || path.length > MAX_PATH_LENGTH) revert InvalidPath();
-        if (path.length != fees.length + 1) revert InvalidPath();
-        if (path[0] != baseToken || path[path.length - 1] != baseToken) revert InvalidPath();
+        uint256 pathLength = path.length;
+        if (pathLength < 2 || pathLength > MAX_PATH_LENGTH) revert InvalidPath();
+        if (pathLength != fees.length + 1) revert InvalidPath();
+        if (path[0] != baseToken || path[pathLength - 1] != baseToken) revert InvalidPath();
 
         // Initialize swap state
+        uint256 lastIndex = pathLength - 1;
         SwapState memory state = SwapState({
             currentToken: baseToken,
             currentAmount: amountIn,
             cumulativeImpact: 0,
-            historicalAmounts: new uint256[](path.length - 1),
+            historicalAmounts: new uint256[](lastIndex),
             startTime: block.timestamp,
             gasUsed: 0
         });
@@ -65,16 +67,16 @@ contract BofhContractV2 is BofhContractBase {
         );
 
         // Execute swaps along the path
-        for (uint256 i = 0; i < path.length - 1;) {
+        for (uint256 i = 0; i < lastIndex;) {
             uint256 gasStart = gasleft();
-            
+
             state = executePathStep(
                 state,
                 path[i],
                 path[i + 1],
                 fees[i],
                 i,
-                path.length - 1
+                lastIndex
             );
             
             unchecked {
@@ -98,7 +100,7 @@ contract BofhContractV2 is BofhContractBase {
 
         emit SwapExecuted(
             msg.sender,
-            path.length,
+            pathLength,
             amountIn,
             state.currentAmount,
             priceImpact
