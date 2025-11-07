@@ -45,13 +45,13 @@ module.exports = {
   //
   compilers: {
     solc: {
-      version: "0.6.12",
-      settings: {          // See the solidity docs for advice about optimization and evmVersion
+      version: "0.8.10",      // Updated to match contract pragma
+      settings: {
         optimizer: {
-          enabled: false,
+          enabled: true,      // Enable optimizer for production
           runs: 200
-        },
-        evmVersion: "byzantium"
+        }
+        // evmVersion: default (london/paris) - removed byzantium
        }
     }
   }
