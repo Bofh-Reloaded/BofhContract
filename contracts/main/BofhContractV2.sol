@@ -109,7 +109,15 @@ contract BofhContractV2 is BofhContractBase {
         return state.currentAmount;
     }
 
-    // Main swap execution function
+    /// @notice Execute a swap through a single path
+    /// @dev Implements virtual function from BofhContractBase with required security modifiers
+    /// @dev Protected by nonReentrant (reentrancy guard) and whenNotPaused (circuit breaker)
+    /// @param path Array of token addresses representing the swap path
+    /// @param fees Array of fee amounts for each swap step
+    /// @param amountIn Input amount for the swap
+    /// @param minAmountOut Minimum acceptable output amount (slippage protection)
+    /// @param deadline Unix timestamp after which the transaction will revert
+    /// @return The actual output amount from the swap
     function executeSwap(
         address[] calldata path,
         uint256[] calldata fees,
@@ -120,7 +128,15 @@ contract BofhContractV2 is BofhContractBase {
         return _executeSwap(path, fees, amountIn, minAmountOut, deadline);
     }
 
-    // Optimized multi-path swap execution
+    /// @notice Execute multiple swaps through different paths in parallel
+    /// @dev Implements virtual function from BofhContractBase with required security modifiers
+    /// @dev Protected by nonReentrant (reentrancy guard) and whenNotPaused (circuit breaker)
+    /// @param paths Array of swap paths, each path is an array of token addresses
+    /// @param fees Array of fee arrays, one per path
+    /// @param amounts Array of input amounts, one per path
+    /// @param minAmounts Array of minimum output amounts, one per path
+    /// @param deadline Unix timestamp after which the transaction will revert
+    /// @return Array of actual output amounts from each swap path
     function executeMultiSwap(
         address[][] calldata paths,
         uint256[][] calldata fees,

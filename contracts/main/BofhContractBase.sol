@@ -126,7 +126,15 @@ abstract contract BofhContractBase {
         securityState.setOperator(operator, status);
     }
 
-    // Virtual functions to be implemented by derived contracts
+    /// @notice Virtual swap execution function to be implemented by derived contracts
+    /// @dev SECURITY REQUIREMENT: Override MUST include nonReentrant and whenNotPaused modifiers
+    /// @dev Access control: Public execution is allowed, but protected by circuit breakers
+    /// @param path Array of token addresses representing the swap path
+    /// @param fees Array of fee amounts for each swap step
+    /// @param amountIn Input amount for the swap
+    /// @param minAmountOut Minimum acceptable output amount (slippage protection)
+    /// @param deadline Unix timestamp after which the transaction will revert
+    /// @return The actual output amount from the swap
     function executeSwap(
         address[] calldata path,
         uint256[] calldata fees,
@@ -134,7 +142,16 @@ abstract contract BofhContractBase {
         uint256 minAmountOut,
         uint256 deadline
     ) external virtual returns (uint256);
-    
+
+    /// @notice Virtual multi-path swap execution function to be implemented by derived contracts
+    /// @dev SECURITY REQUIREMENT: Override MUST include nonReentrant and whenNotPaused modifiers
+    /// @dev Access control: Public execution is allowed, but protected by circuit breakers
+    /// @param paths Array of swap paths, each path is an array of token addresses
+    /// @param fees Array of fee arrays, one per path
+    /// @param amounts Array of input amounts, one per path
+    /// @param minAmounts Array of minimum output amounts, one per path
+    /// @param deadline Unix timestamp after which the transaction will revert
+    /// @return Array of actual output amounts from each swap path
     function executeMultiSwap(
         address[][] calldata paths,
         uint256[][] calldata fees,
