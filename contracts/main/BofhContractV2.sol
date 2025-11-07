@@ -20,21 +20,19 @@ contract BofhContractV2 is BofhContractBase {
     /// @notice Uniswap V2-style factory address for pair lookups
     address private immutable factory;
 
+    /// @notice Maximum allowed fee in basis points (100% = 10000 bps)
+    uint256 private constant MAX_FEE_BPS = 10000;
+
     /// @notice Internal state tracking for multi-step swap execution
-    /// @dev Used to track swap progress across multiple hops and calculate cumulative metrics
+    /// @dev Minimal state for tracking swap progress across multiple hops
     /// @custom:field currentToken Address of current token in swap path
     /// @custom:field currentAmount Current token amount after each hop
     /// @custom:field cumulativeImpact Accumulated price impact across all hops
-    /// @custom:field historicalAmounts Array of amounts at each step for analytics
-    /// @custom:field startTime Swap start timestamp for gas profiling
-    /// @custom:field gasUsed Cumulative gas consumption across swap steps
+    /// @custom:optimization Removed unused fields (historicalAmounts, startTime, gasUsed) for gas savings
     struct SwapState {
         address currentToken;
         uint256 currentAmount;
         uint256 cumulativeImpact;
-        uint256[] historicalAmounts;
-        uint256 startTime;
-        uint256 gasUsed;
     }
 
     /// @notice Thrown when swap path structure is invalid (wrong start/end token, length constraints)
@@ -126,9 +124,8 @@ contract BofhContractV2 is BofhContractBase {
         if (path[0] != baseToken || path[pathLength - 1] != baseToken) revert InvalidPath();
 
         // 6. Fee validation (fees must be reasonable, max 100% = 10000 bps)
-        uint256 maxFeeBps = 10000; // 100%
         for (uint256 i = 0; i < fees.length;) {
-            if (fees[i] > maxFeeBps) revert InvalidFee();
+            if (fees[i] > MAX_FEE_BPS) revert InvalidFee();
             unchecked { ++i; }
         }
     }
@@ -162,10 +159,7 @@ contract BofhContractV2 is BofhContractBase {
         SwapState memory state = SwapState({
             currentToken: baseToken,
             currentAmount: amountIn,
-            cumulativeImpact: 0,
-            historicalAmounts: new uint256[](lastIndex),
-            startTime: block.timestamp,
-            gasUsed: 0
+            cumulativeImpact: 0
         });
 
         // Transfer initial amount from user
@@ -176,8 +170,6 @@ contract BofhContractV2 is BofhContractBase {
 
         // Execute swaps along the path
         for (uint256 i = 0; i < lastIndex;) {
-            uint256 gasStart = gasleft();
-
             state = executePathStep(
                 state,
                 path[i],
@@ -186,9 +178,8 @@ contract BofhContractV2 is BofhContractBase {
                 i,
                 lastIndex
             );
-            
+
             unchecked {
-                state.gasUsed += gasStart - gasleft();
                 ++i;
             }
         }
@@ -341,7 +332,7 @@ contract BofhContractV2 is BofhContractBase {
 
         // Calculate expected output using constant product formula (x * y = k)
         // amountOut = (amountIn * reserveOut * 997) / (reserveIn * 1000 + amountIn * 997)
-        state.historicalAmounts[stepIndex] = (state.currentAmount * 997 * pool.reserveOut) / (pool.reserveIn * 1000 + state.currentAmount * 997);
+        uint256 expectedOutput = (state.currentAmount * 997 * pool.reserveOut) / (pool.reserveIn * 1000 + state.currentAmount * 997);
         state.cumulativeImpact += pool.priceImpact;
 
         // Transfer tokens to the pair contract (Uniswap V2 pattern)
@@ -355,8 +346,8 @@ contract BofhContractV2 is BofhContractBase {
 
             // Execute swap on the pair contract
             IGenericPair(pairAddress).swap(
-                pool.sellingToken0 ? 0 : state.historicalAmounts[stepIndex],
-                pool.sellingToken0 ? state.historicalAmounts[stepIndex] : 0,
+                pool.sellingToken0 ? 0 : expectedOutput,
+                pool.sellingToken0 ? expectedOutput : 0,
                 address(this),
                 new bytes(0)
             );
