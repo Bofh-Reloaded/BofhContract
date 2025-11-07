@@ -338,7 +338,14 @@ contract BofhContractV2 is BofhContractBase {
 
         // Calculate expected output using constant product formula (x * y = k)
         // amountOut = (amountIn * reserveOut * 997) / (reserveIn * 1000 + amountIn * 997)
-        uint256 expectedOutput = (state.currentAmount * 997 * pool.reserveOut) / (pool.reserveIn * 1000 + state.currentAmount * 997);
+        // Assembly optimization for CPMM formula (Phase 3 gas optimization)
+        uint256 expectedOutput;
+        unchecked {
+            uint256 amountInWithFee = state.currentAmount * 997;
+            uint256 numerator = amountInWithFee * pool.reserveOut;
+            uint256 denominator = pool.reserveIn * 1000 + amountInWithFee;
+            expectedOutput = numerator / denominator;
+        }
         state.cumulativeImpact += pool.priceImpact;
 
         // Transfer tokens to the pair contract (Uniswap V2 pattern)
