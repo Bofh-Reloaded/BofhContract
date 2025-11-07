@@ -319,16 +319,17 @@ contract BofhContractV2 is BofhContractBase {
         expectedOutput = amounts[0];
         
         for (uint256 i = 0; i < pathLength;) {
+            address pairAddress = _getPair(path[i], path[i + 1]);
             PoolLib.PoolState memory pool = PoolLib.analyzePool(
+                pairAddress,
                 path[i],
-                path[i + 1],
                 expectedOutput,
                 block.timestamp
             );
-            
+
             cumulativeImpact += pool.priceImpact;
             expectedOutput = (expectedOutput * (PRECISION - pool.priceImpact)) / PRECISION;
-            
+
             unchecked { ++i; }
         }
         
