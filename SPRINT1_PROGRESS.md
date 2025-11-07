@@ -139,9 +139,10 @@ Contracts Moved:     2 (to .variants/)
 
 **Phase 4: Test & Review** 🟡 IN PROGRESS
 - ✅ All contracts compile successfully
-- ⚠️ Testing blocked (Ganache/Node.js v25 incompatibility)
-- ⏸️ Pull request creation pending
+- ✅ Pull request created (PR #20)
+- ⚠️ Testing blocked (Ganache/Node.js v25 incompatibility - deferred to SPRINT 2)
 - ⏸️ Code review pending
+- ⏸️ Merge to main pending
 
 ---
 
@@ -159,9 +160,9 @@ Contracts Moved:     2 (to .variants/)
 3. ✅ ~~Complete Task 1.3 (storage manipulation)~~ - DONE
 4. ✅ ~~Complete Task 1.4 (npm dependencies)~~ - DONE
 5. ✅ ~~Complete Task 1.5 (API key removal)~~ - DONE
-6. Create pull request for code review
-7. Address any review comments
-8. Merge to main
+6. ✅ ~~Create pull request for code review~~ - DONE (PR #20)
+7. Address any review comments (awaiting review)
+8. Merge to main (awaiting approval)
 
 ### Known Issues (Non-blocking)
 - **Testing**: Ganache incompatible with Node.js v25.1.0
@@ -214,6 +215,7 @@ Contracts Moved:     2 (to .variants/)
 
 ## 🔗 Related Resources
 
+- **Pull Request**: https://github.com/Bofh-Reloaded/BofhContract/pull/20
 - **Branch**: https://github.com/Bofh-Reloaded/BofhContract/tree/fix/sprint-1-critical-fixes
 - **Issues**:
   - #1 (Fixed ✅) - Solidity version mismatch
