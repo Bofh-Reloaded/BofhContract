@@ -39,7 +39,10 @@ describe("BofhContractV2", function () {
 
         // Deploy BofhContract
         const BofhContractV2 = await ethers.getContractFactory("BofhContractV2");
-        const bofh = await BofhContractV2.deploy(await baseToken.getAddress());
+        const bofh = await BofhContractV2.deploy(
+            await baseToken.getAddress(),
+            await factory.getAddress()
+        );
 
         // Add liquidity to pairs
         await baseToken.approve(pairBaseA, LIQUIDITY_AMOUNT);
@@ -116,8 +119,9 @@ describe("BofhContractV2", function () {
 
         it("Should reject deployment with zero address base token", async function () {
             const BofhContractV2 = await ethers.getContractFactory("BofhContractV2");
+            const { factory } = await loadFixture(deployContractsFixture);
             await expect(
-                BofhContractV2.deploy(ethers.ZeroAddress)
+                BofhContractV2.deploy(ethers.ZeroAddress, await factory.getAddress())
             ).to.be.reverted;
         });
     });
