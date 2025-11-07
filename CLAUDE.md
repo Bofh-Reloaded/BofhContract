@@ -443,7 +443,7 @@ GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every push/PR:
 ---
 
 **Last Updated**: 2025-11-07 (Library Test Suite Complete)
-**Project Version**: v1.2.0
+**Project Version**: v1.3.0
 **Coverage**: 47.23% overall, 93.5% libraries (106/106 tests passing)
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
