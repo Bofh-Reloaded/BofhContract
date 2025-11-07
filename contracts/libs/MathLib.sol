@@ -16,6 +16,12 @@ library MathLib {
     /// @notice Cube root calculation precision (100)
     uint256 private constant CBRT_PRECISION = 1e2;
 
+    /// @notice Golden ratio constant φ ≈ 0.618034 (scaled by PRECISION)
+    uint256 private constant GOLDEN_RATIO = 618034;
+
+    /// @notice Golden ratio squared φ² ≈ 0.381966 (scaled by PRECISION)
+    uint256 private constant GOLDEN_RATIO_SQUARED = 381966;
+
     /// @notice Calculate square root using Newton's method
     /// @dev Uses Newton-Raphson iteration: y_{n+1} = (y_n + x/y_n) / 2
     /// @dev Converges quadratically with better initial guess via bit length
@@ -151,16 +157,14 @@ library MathLib {
         uint256 position
     ) internal pure returns (uint256) {
         require(pathLength >= 3 && pathLength <= 5, "Invalid path length");
-        
+
         // Golden ratio-based optimization
         if (pathLength == 4) {
-            uint256 goldenRatio = 618034; // φ ≈ 0.618034
-            return (amount * (PRECISION - (goldenRatio * position) / pathLength)) / PRECISION;
+            return (amount * (PRECISION - (GOLDEN_RATIO * position) / pathLength)) / PRECISION;
         } else if (pathLength == 5) {
-            uint256 goldenRatioSquared = 381966; // φ2 ≈ 0.381966
-            return (amount * (PRECISION - (goldenRatioSquared * position) / pathLength)) / PRECISION;
+            return (amount * (PRECISION - (GOLDEN_RATIO_SQUARED * position) / pathLength)) / PRECISION;
         }
-        
+
         // Default to equal distribution for 3-way
         return (amount * (PRECISION - position * PRECISION / pathLength)) / PRECISION;
     }
