@@ -26,12 +26,17 @@ interface IGenericPair {
 }
 
 contract BofhContract {
-    // Immutable state variables
-    address private immutable owner;
+    // State variables
+    address private owner;  // Removed immutable to allow ownership transfer
     address private immutable baseToken;
-    
+
     // Contract state
     bool private isDeactivated;
+
+    // Reentrancy guard
+    uint256 private constant _NOT_ENTERED = 1;
+    uint256 private constant _ENTERED = 2;
+    uint256 private _status;
 
     // Constants for mathematical precision
     uint256 private constant PRECISION = 1e6;
@@ -67,6 +72,7 @@ contract BofhContract {
         uint256 sandwichProtection
     );
     event EmergencyAction(bool paused);
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     
     // Risk management functions
     function updateRiskParams(
@@ -93,10 +99,10 @@ contract BofhContract {
         emit PoolBlacklisted(pool, blacklisted);
     }
     
-    function emergencyPause(bool pause) external onlyOwner {
+    function emergencyPause(bool pause) external onlyOwner nonReentrant {
         emergencyPaused = pause;
         emit EmergencyAction(pause);
-        
+
         if (pause) {
             // Withdraw all funds to admin if pausing
             uint256 balance = IBEP20(baseToken).balanceOf(address(this));
@@ -156,6 +162,7 @@ contract BofhContract {
         owner = msg.sender;
         baseToken = ctrBaseToken;
         isDeactivated = false;
+        _status = _NOT_ENTERED;
     }
 
     modifier onlyOwner() {
@@ -167,6 +174,16 @@ contract BofhContract {
         if (isDeactivated) revert ContractDeactivated();
         _;
     }
+
+    modifier nonReentrant() {
+        if (_status == _ENTERED) revert ReentrancyGuardError();
+        _status = _ENTERED;
+        _;
+        _status = _NOT_ENTERED;
+    }
+
+    // Custom error for reentrancy
+    error ReentrancyGuardError();
 
     // View functions
     function getAdmin() external view returns (address) {
@@ -393,7 +410,7 @@ contract BofhContract {
     }
 
     // Advanced 4-way swap using golden ratio optimization
-    function fourWaySwap(uint256[4] calldata args) external onlyOwner whenActive returns (uint256) {
+    function fourWaySwap(uint256[4] calldata args) external onlyOwner whenActive nonReentrant returns (uint256) {
         SwapState memory state = SwapState({
             transitToken: baseToken,
             currentAmount: uint128(args[3]), // amountData
@@ -439,7 +456,7 @@ contract BofhContract {
     }
 
     // Advanced 5-way swap using dynamic programming
-    function fiveWaySwap(uint256[5] calldata args) external onlyOwner whenActive returns (uint256) {
+    function fiveWaySwap(uint256[5] calldata args) external onlyOwner whenActive nonReentrant returns (uint256) {
         SwapState memory state = SwapState({
             transitToken: baseToken,
             currentAmount: uint128(args[4]), // amountData
@@ -501,7 +518,7 @@ contract BofhContract {
     }
 
     // Admin functions
-    function adoptAllowance() external onlyOwner whenActive {
+    function adoptAllowance() external onlyOwner whenActive nonReentrant {
         IBEP20(baseToken).transferFrom(
             msg.sender,
             address(this),
@@ -509,18 +526,18 @@ contract BofhContract {
         );
     }
 
-    function withdrawFunds() external onlyOwner {
+    function withdrawFunds() external onlyOwner nonReentrant {
         IBEP20(baseToken).transfer(msg.sender, IBEP20(baseToken).balanceOf(address(this)));
     }
 
     function changeAdmin(address newOwner) external onlyOwner {
         if (newOwner == address(0)) revert Unauthorized();
-        assembly {
-            sstore(0, newOwner)
-        }
+        address oldOwner = owner;
+        owner = newOwner;
+        emit OwnershipTransferred(oldOwner, newOwner);
     }
 
-    function deactivateContract() external onlyOwner {
+    function deactivateContract() external onlyOwner nonReentrant {
         uint256 balance = IBEP20(baseToken).balanceOf(address(this));
         if (balance > 0) {
             IBEP20(baseToken).transfer(msg.sender, balance);

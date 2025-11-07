@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.10;
 
-import "./SecurityLib.sol";
-import "./MathLib.sol";
-import "./PoolLib.sol";
-import "./interfaces/ISwapInterfaces.sol";
+import "../libs/SecurityLib.sol";
+import "../libs/MathLib.sol";
+import "../libs/PoolLib.sol";
+import "../interfaces/ISwapInterfaces.sol";
 
 abstract contract BofhContractBase {
     using SecurityLib for SecurityLib.SecurityState;

@@ -63,18 +63,37 @@ An advanced smart contract system implementing cutting-edge mathematical algorit
 
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/BofhContract.git
+git clone https://github.com/Bofh-Reloaded/BofhContract.git
 cd BofhContract
 
 # Install dependencies
-npm install
+npm install --legacy-peer-deps
+
+# Configure environment
+cp env.json.example env.json
+# Edit env.json and add your:
+# - BSC testnet mnemonic (12 words)
+# - BSCScan API key (get from https://bscscan.com/myapikey)
 
 # Compile contracts
-truffle compile
+npx truffle compile
 
 # Run tests
-truffle test
+npm test
 ```
+
+### Environment Setup
+
+Create `env.json` in the project root:
+
+```json
+{
+    "mnemonic": "your twelve word mnemonic phrase here",
+    "BSCSCANAPIKEY": "YOUR_BSCSCAN_API_KEY"
+}
+```
+
+**⚠️ IMPORTANT**: Never commit `env.json` to version control!
 
 ## 🌟 Why BofhContract V2 is Mathematically & Financially Advanced
 

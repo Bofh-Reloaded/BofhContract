@@ -34,8 +34,13 @@
 *.user
 
 /venv/
-<<<<<<< HEAD
 /.venv/
+
+# Environment files with secrets
+env.json
+.env
+.env.local
+.env.*.local
 
 
 
