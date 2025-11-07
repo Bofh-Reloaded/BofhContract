@@ -9,47 +9,35 @@ library MathLib {
     // Enhanced sqrt using Newton's method with better initial guess
     function sqrt(uint256 x) internal pure returns (uint256 y) {
         if (x == 0) return 0;
-        
-        // Use bit shifts for better initial guess
-        uint256 z = x;
-        if (x > 0x100000000000000000000000000000000) {
-            z = x >> 128;
-            y = z << 64;
-        } else {
-            y = z << 32;
-        }
-        
-        // Newton's method with optimized iteration count
-        for (uint256 i = 0; i < 7; i++) {
-            uint256 newY = (y + x / y) >> 1;
-            if (newY >= y) break;
-            y = newY;
+        if (x <= 3) return 1;
+
+        // Better initial guess using bit length
+        uint256 z = (x + 1) / 2;
+        y = x;
+
+        // Newton's method: y = (y + x/y) / 2
+        while (z < y) {
+            y = z;
+            z = (x / z + z) / 2;
         }
     }
 
     // Enhanced cbrt using Newton's method with dynamic precision
     function cbrt(uint256 x) internal pure returns (uint256) {
         if (x == 0) return 0;
-        
-        uint256 r = x;
-        uint256 p = x / 3;
-        
-        // Newton's method with precision-based early exit
-        for (uint256 i = 0; i < 7; i++) {
-            uint256 prev = r;
-            r = (2 * r + x / (r * r)) / 3;
-            
-            // Check for convergence with dynamic precision
-            if (prev > r) {
-                if (prev - r < CBRT_PRECISION) break;
-            } else {
-                if (r - prev < CBRT_PRECISION) break;
-            }
-            
-            if (r <= p) break;
-            p = r;
+        if (x == 1) return 1;
+
+        uint256 z = x;
+        uint256 y = x / 3 + 1;
+
+        // Newton's method: y = (2*y + x/(y*y)) / 3
+        while (y < z) {
+            z = y;
+            uint256 ySquared = y * y;
+            if (ySquared == 0) break;
+            y = (2 * y + x / ySquared) / 3;
         }
-        return r;
+        return z;
     }
 
     // Enhanced geometric mean with overflow protection
