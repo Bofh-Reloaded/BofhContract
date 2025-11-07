@@ -130,8 +130,10 @@ Tests use:
 - Chai assertions
 - Test fixtures via `loadFixture()` for efficiency
 - Time manipulation via `@nomicfoundation/hardhat-toolbox/network-helpers`
-- Test file: `test/BofhContractV2.test.js` (44 tests, 100% passing)
-- Current coverage: 22.19% overall, 64.29% for BofhContractBase
+- Test files:
+  - `test/BofhContractV2.test.js` (44 tests for main contract)
+  - `test/Libraries.test.js` (62 tests for library functions)
+- Current coverage: 47.23% overall, 93.5% libraries, 64.29% for BofhContractBase
 
 Test setup creates:
 - Multiple mock tokens (BASE, TKNA, TKNB, TKNC)
@@ -407,12 +409,14 @@ GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every push/PR:
 
 ## Project Roadmap & Sprint Planning
 
-### Current Status (Post Sprint 2)
+### Current Status (Post Library Test Suite)
 - ✅ Hardhat migration complete
-- ✅ Comprehensive test suite (44 tests, 100% passing)
+- ✅ Comprehensive test suite (106 tests, 100% passing)
+- ✅ Library coverage: 93.5% (MathLib: 100%, PoolLib: 92.5%, SecurityLib: 81.5%)
+- ✅ Critical math bugs fixed (sqrt, cbrt implementations)
 - ✅ Security enhancements (MEV, validation, access control)
 - ✅ CI/CD pipeline functional
-- 🟡 Coverage at 22.19% (target: 90%+)
+- 🟡 Overall coverage at 47.23% (target: 90%+)
 
 ### Upcoming Priorities
 1. **Increase Test Coverage**: Add integration tests, library tests
@@ -438,9 +442,9 @@ GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every push/PR:
 
 ---
 
-**Last Updated**: 2025-11-07 (Sprint 2 Complete)
+**Last Updated**: 2025-11-07 (Library Test Suite Complete)
 **Project Version**: v1.2.0
-**Coverage**: 22.19% (44/44 tests passing)
+**Coverage**: 47.23% overall, 93.5% libraries (106/106 tests passing)
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 
