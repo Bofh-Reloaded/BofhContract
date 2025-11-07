@@ -193,5 +193,10 @@ cython_debug/
 
 node_modules
 
+# Hardhat artifacts and cache
+artifacts/
+cache/
+typechain-types/
+
 # Development workflow tools (nested git repo)
 dev-prompts/
