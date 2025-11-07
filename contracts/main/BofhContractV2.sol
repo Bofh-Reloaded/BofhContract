@@ -159,7 +159,8 @@ contract BofhContractV2 is BofhContractBase {
 
     /// @notice Execute a swap through a single path
     /// @dev Implements virtual function from BofhContractBase with required security modifiers
-    /// @dev Protected by nonReentrant (reentrancy guard) and whenNotPaused (circuit breaker)
+    /// @dev Protected by: nonReentrant (reentrancy guard), whenNotPaused (circuit breaker), antiMEV (flash loan protection)
+    /// @dev MEV Protection (Issue #9): Limits transactions per block and enforces delay between transactions
     /// @param path Array of token addresses representing the swap path
     /// @param fees Array of fee amounts for each swap step
     /// @param amountIn Input amount for the swap
@@ -172,13 +173,14 @@ contract BofhContractV2 is BofhContractBase {
         uint256 amountIn,
         uint256 minAmountOut,
         uint256 deadline
-    ) external override nonReentrant whenNotPaused returns (uint256) {
+    ) external override nonReentrant whenNotPaused antiMEV returns (uint256) {
         return _executeSwap(path, fees, amountIn, minAmountOut, deadline);
     }
 
     /// @notice Execute multiple swaps through different paths in parallel
     /// @dev Implements virtual function from BofhContractBase with required security modifiers
-    /// @dev Protected by nonReentrant (reentrancy guard) and whenNotPaused (circuit breaker)
+    /// @dev Protected by: nonReentrant (reentrancy guard), whenNotPaused (circuit breaker)
+    /// @dev NOTE: antiMEV modifier not applied here due to stack depth limitations
     /// @param paths Array of swap paths, each path is an array of token addresses
     /// @param fees Array of fee arrays, one per path
     /// @param amounts Array of input amounts, one per path

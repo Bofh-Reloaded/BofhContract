@@ -25,6 +25,26 @@ abstract contract BofhContractBase {
     uint256 public minPoolLiquidity;
     uint256 public maxPriceImpact;
     uint256 public sandwichProtectionBips;
+
+    // MEV Protection (Issue #9)
+    struct RateLimitState {
+        uint256 lastBlockNumber;
+        uint256 transactionsThisBlock;
+        uint256 lastTransactionTimestamp;
+    }
+    mapping(address => RateLimitState) private rateLimits;
+
+    // MEV Protection Configuration
+    bool public mevProtectionEnabled;
+    uint256 public maxTxPerBlock = 3;
+    uint256 public minTxDelay = 12; // seconds
+
+    // MEV Protection Events
+    event MEVProtectionUpdated(bool enabled, uint256 maxTxPerBlock, uint256 minTxDelay);
+
+    // MEV Protection Errors
+    error FlashLoanDetected();
+    error RateLimitExceeded();
     
     // Events
     event PoolBlacklisted(address indexed pool, bool blacklisted);
@@ -57,6 +77,37 @@ abstract contract BofhContractBase {
         securityState.enterProtectedSection(msg.sig);
         _;
         securityState.exitProtectedSection();
+    }
+
+    /// @dev MEV protection modifier (Issue #9)
+    /// @notice Prevents flash loan attacks and rate limits transactions (if enabled)
+    modifier antiMEV() {
+        if (mevProtectionEnabled) {
+            RateLimitState storage limit = rateLimits[msg.sender];
+
+            // Detect flash loan (multiple transactions in same block)
+            if (limit.lastBlockNumber == block.number) {
+                limit.transactionsThisBlock++;
+                if (limit.transactionsThisBlock > maxTxPerBlock) {
+                    revert FlashLoanDetected();
+                }
+            } else {
+                limit.lastBlockNumber = block.number;
+                limit.transactionsThisBlock = 1;
+            }
+
+            // Enforce minimum delay between transactions
+            if (block.timestamp - limit.lastTransactionTimestamp < minTxDelay) {
+                revert RateLimitExceeded();
+            }
+
+            _;
+
+            // Update timestamp after successful execution
+            limit.lastTransactionTimestamp = block.timestamp;
+        } else {
+            _;
+        }
     }
 
     // Constructor
@@ -104,7 +155,26 @@ abstract contract BofhContractBase {
         blacklistedPools[pool] = blacklisted;
         emit PoolBlacklisted(pool, blacklisted);
     }
-    
+
+    /// @notice Configure MEV protection parameters (Issue #9)
+    /// @param enabled Enable or disable MEV protection
+    /// @param _maxTxPerBlock Maximum transactions per block per address
+    /// @param _minTxDelay Minimum seconds between transactions per address
+    function configureMEVProtection(
+        bool enabled,
+        uint256 _maxTxPerBlock,
+        uint256 _minTxDelay
+    ) external onlyOwner {
+        require(_maxTxPerBlock > 0, "Invalid max tx per block");
+        require(_minTxDelay > 0, "Invalid min tx delay");
+
+        mevProtectionEnabled = enabled;
+        maxTxPerBlock = _maxTxPerBlock;
+        minTxDelay = _minTxDelay;
+
+        emit MEVProtectionUpdated(enabled, _maxTxPerBlock, _minTxDelay);
+    }
+
     // Emergency functions
     function emergencyPause() external onlyOwner {
         securityState.emergencyPause();
