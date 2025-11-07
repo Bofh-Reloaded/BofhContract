@@ -26,8 +26,8 @@ interface IGenericPair {
 }
 
 contract BofhContract {
-    // Immutable state variables
-    address private immutable owner;
+    // State variables
+    address private owner;  // Removed immutable to allow ownership transfer
     address private immutable baseToken;
 
     // Contract state
@@ -72,6 +72,7 @@ contract BofhContract {
         uint256 sandwichProtection
     );
     event EmergencyAction(bool paused);
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     
     // Risk management functions
     function updateRiskParams(
@@ -531,9 +532,9 @@ contract BofhContract {
 
     function changeAdmin(address newOwner) external onlyOwner {
         if (newOwner == address(0)) revert Unauthorized();
-        assembly {
-            sstore(0, newOwner)
-        }
+        address oldOwner = owner;
+        owner = newOwner;
+        emit OwnershipTransferred(oldOwner, newOwner);
     }
 
     function deactivateContract() external onlyOwner nonReentrant {
