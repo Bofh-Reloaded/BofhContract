@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>Code coverage report for libs/MathLib.sol</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../prettify.css" />
+    <link rel="stylesheet" href="../base.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../sort-arrow-sprite.png);
+        }
+    </style>
+</head>
+<body>
+<div class='wrapper'>
+  <div class='pad1'>
+    <h1>
+      <a href="../index.html">all files</a> / <a href="index.html">libs/</a> MathLib.sol
+    </h1>
+    <div class='clearfix'>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">0% </span>
+        <span class="quiet">Statements</span>
+        <span class='fraction'>0/58</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">0% </span>
+        <span class="quiet">Branches</span>
+        <span class='fraction'>0/54</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">0% </span>
+        <span class="quiet">Functions</span>
+        <span class='fraction'>0/6</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">0% </span>
+        <span class="quiet">Lines</span>
+        <span class='fraction'>0/58</span>
+      </div>
+    </div>
+  </div>
+  <div class='status-line low'></div>
+<pre><table class="coverage">
+<tr><td class="line-count quiet">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+112
+113
+114
+115
+116
+117
+118
+119
+120
+121
+122
+123
+124
+125
+126
+127
+128
+129
+130
+131
+132</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// SPDX-License-Identifier: UNLICENSED
+pragma solidity &gt;=0.8.10;
+&nbsp;
+library MathLib {
+    uint256 private constant PRECISION = 1e6;
+    uint256 private constant SQRT_PRECISION = 1e3;
+    uint256 private constant CBRT_PRECISION = 1e2;
+&nbsp;
+    // Enhanced sqrt using Newton's method with better initial guess
+<span class="fstat-no" title="function not covered" >    function sqrt(uint256 x) internal pure returns (uint256 y) {</span>
+<span class="cstat-no" title="statement not covered" >        if (x == 0) <span class="cstat-no" title="statement not covered" >return 0;</span></span>
+        
+        // Use bit shifts for better initial guess
+<span class="cstat-no" title="statement not covered" >        uint256 z = x;</span>
+<span class="cstat-no" title="statement not covered" >        if (x &gt; 0x100000000000000000000000000000000) {</span>
+            z = x &gt;&gt; 128;
+            y = z &lt;&lt; 64;
+        } else {
+            y = z &lt;&lt; 32;
+        }
+        
+        // Newton's method with optimized iteration count
+<span class="cstat-no" title="statement not covered" >        for (uint256 i = 0; i &lt; 7; i++) {</span>
+<span class="cstat-no" title="statement not covered" >            uint256 newY = (y + x / y) &gt;&gt; 1;</span>
+<span class="cstat-no" title="statement not covered" >            if (newY &gt;= y) break;</span>
+            y = newY;
+        }
+    }
+&nbsp;
+    // Enhanced cbrt using Newton's method with dynamic precision
+<span class="fstat-no" title="function not covered" >    function cbrt(uint256 x) internal pure returns (uint256) {</span>
+<span class="cstat-no" title="statement not covered" >        if (x == 0) <span class="cstat-no" title="statement not covered" >return 0;</span></span>
+        
+<span class="cstat-no" title="statement not covered" >        uint256 r = x;</span>
+<span class="cstat-no" title="statement not covered" >        uint256 p = x / 3;</span>
+        
+        // Newton's method with precision-based early exit
+<span class="cstat-no" title="statement not covered" >        for (uint256 i = 0; i &lt; 7; i++) {</span>
+<span class="cstat-no" title="statement not covered" >            uint256 prev = r;</span>
+            r = (2 * r + x / (r * r)) / 3;
+            
+            // Check for convergence with dynamic precision
+<span class="cstat-no" title="statement not covered" >            if (prev &gt; r) {</span>
+<span class="cstat-no" title="statement not covered" >                if (prev - r &lt; CBRT_PRECISION) break;</span>
+            } else {
+<span class="cstat-no" title="statement not covered" >                if (r - prev &lt; CBRT_PRECISION) break;</span>
+            }
+            
+<span class="cstat-no" title="statement not covered" >            if (r &lt;= p) break;</span>
+            p = r;
+        }
+<span class="cstat-no" title="statement not covered" >        return r;</span>
+    }
+&nbsp;
+    // Enhanced geometric mean with overflow protection
+<span class="fstat-no" title="function not covered" >    function geometricMean(uint256 a, uint256 b) internal pure returns (uint256) {</span>
+<span class="cstat-no" title="statement not covered" >        if (a == 0 || b == 0) <span class="cstat-no" title="statement not covered" >return 0;</span></span>
+        
+        // Use log approximation for very large numbers
+<span class="cstat-no" title="statement not covered" >        if (a &gt; type(uint128).max || b &gt; type(uint128).max) {</span>
+<span class="cstat-no" title="statement not covered" >            uint256 logSum = (log2(a) + log2(b)) / 2;</span>
+<span class="cstat-no" title="statement not covered" >            return exp2(logSum);</span>
+        }
+        
+<span class="cstat-no" title="statement not covered" >        return sqrt(a * b);</span>
+    }
+&nbsp;
+    // Log2 approximation using binary search
+<span class="fstat-no" title="function not covered" >    function log2(uint256 x) internal pure returns (uint256) {</span>
+<span class="cstat-no" title="statement not covered" >        if (x == 0) <span class="cstat-no" title="statement not covered" >return 0;</span></span>
+        
+<span class="cstat-no" title="statement not covered" >        uint256 result = 0;</span>
+<span class="cstat-no" title="statement not covered" >        uint256 value = x;</span>
+        
+        // Find highest set bit
+<span class="cstat-no" title="statement not covered" >        if (value &gt;= 2**128) { value &gt;&gt;= 128; result += 128; }</span>
+<span class="cstat-no" title="statement not covered" >        if (value &gt;= 2**64) { value &gt;&gt;= 64; result += 64; }</span>
+<span class="cstat-no" title="statement not covered" >        if (value &gt;= 2**32) { value &gt;&gt;= 32; result += 32; }</span>
+<span class="cstat-no" title="statement not covered" >        if (value &gt;= 2**16) { value &gt;&gt;= 16; result += 16; }</span>
+<span class="cstat-no" title="statement not covered" >        if (value &gt;= 2**8) { value &gt;&gt;= 8; result += 8; }</span>
+<span class="cstat-no" title="statement not covered" >        if (value &gt;= 2**4) { value &gt;&gt;= 4; result += 4; }</span>
+<span class="cstat-no" title="statement not covered" >        if (value &gt;= 2**2) { value &gt;&gt;= 2; result += 2; }</span>
+<span class="cstat-no" title="statement not covered" >        if (value &gt;= 2**1) { result += 1; }</span>
+        
+<span class="cstat-no" title="statement not covered" >        return result * PRECISION;</span>
+    }
+&nbsp;
+    // Exp2 implementation using bit manipulation
+<span class="fstat-no" title="function not covered" >    function exp2(uint256 x) internal pure returns (uint256) {</span>
+<span class="cstat-no" title="statement not covered" >        if (x == 0) <span class="cstat-no" title="statement not covered" >return PRECISION;</span></span>
+        
+<span class="cstat-no" title="statement not covered" >        uint256 wholePart = x / PRECISION;</span>
+<span class="cstat-no" title="statement not covered" >        uint256 fracPart = x % PRECISION;</span>
+        
+<span class="cstat-no" title="statement not covered" >        if (wholePart &gt;= 255) <span class="cstat-no" title="statement not covered" >return type(uint256).max;</span></span>
+        
+<span class="cstat-no" title="statement not covered" >        uint256 result = 1 &lt;&lt; wholePart;</span>
+<span class="cstat-no" title="statement not covered" >        if (fracPart == 0) <span class="cstat-no" title="statement not covered" >return result;</span></span>
+        
+        // Taylor series approximation for fractional part
+<span class="cstat-no" title="statement not covered" >        uint256 term = result;</span>
+<span class="cstat-no" title="statement not covered" >        uint256 sum = result;</span>
+        
+<span class="cstat-no" title="statement not covered" >        for (uint256 i = 1; i &lt;= 4; i++) {</span>
+            term = (term * fracPart * (wholePart + i)) / (i * PRECISION);
+            sum += term;
+        }
+        
+<span class="cstat-no" title="statement not covered" >        return sum;</span>
+    }
+&nbsp;
+    // Calculate optimal amounts for n-way swaps
+<span class="fstat-no" title="function not covered" >    function calculateOptimalAmount(</span>
+        uint256 amount,
+        uint256 pathLength,
+        uint256 position
+    ) internal pure returns (uint256) {
+<span class="cstat-no" title="statement not covered" >        require(pathLength &gt;= 3 &amp;&amp; pathLength &lt;= 5, "Invalid path length")</span>;
+        
+        // Golden ratio-based optimization
+<span class="cstat-no" title="statement not covered" >        if (pathLength == 4) {</span>
+<span class="cstat-no" title="statement not covered" >            uint256 goldenRatio = 618034;</span> // φ ≈ 0.618034
+<span class="cstat-no" title="statement not covered" >            return (amount * (PRECISION - (goldenRatio * position) / pathLength)) / PRECISION;</span>
+        } else <span class="cstat-no" title="statement not covered" >if (pathLength == 5) {</span>
+<span class="cstat-no" title="statement not covered" >            uint256 goldenRatioSquared = 381966;</span> // φ2 ≈ 0.381966
+<span class="cstat-no" title="statement not covered" >            return (amount * (PRECISION - (goldenRatioSquared * position) / pathLength)) / PRECISION;</span>
+        }
+        
+        // Default to equal distribution for 3-way
+<span class="cstat-no" title="statement not covered" >        return (amount * (PRECISION - position * PRECISION / pathLength)) / PRECISION;</span>
+    }
+}</pre></td></tr>
+</table></pre>
+<div class='push'></div><!-- for sticky footer -->
+</div><!-- /wrapper -->
+<div class='footer quiet pad2 space-top1 center small'>
+  Code coverage
+  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Fri Nov 07 2025 15:42:12 GMT+0100 (Central European Standard Time)
+</div>
+</div>
+<script src="../prettify.js"></script>
+<script>
+window.onload = function () {
+        if (typeof prettyPrint === 'function') {
+            prettyPrint();
+        }
+};
+</script>
+<script src="../sorter.js"></script>
+</body>
+</html>
