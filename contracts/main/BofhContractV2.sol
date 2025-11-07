@@ -65,6 +65,24 @@ contract BofhContractV2 is BofhContractBase {
     /// @notice Thrown when fee exceeds maximum allowed (100% = 10000 bps)
     error InvalidFee();
 
+    /// @notice Thrown when base token address is zero (constructor validation)
+    error InvalidBaseToken();
+
+    /// @notice Thrown when factory address is zero (constructor validation)
+    error InvalidFactory();
+
+    /// @notice Thrown when token transfer fails
+    error TransferFailed();
+
+    /// @notice Thrown when multi-swap execution is unprofitable
+    error UnprofitableExecution();
+
+    /// @notice Thrown when swap parameters are invalid (pool validation fails)
+    error InvalidSwapParameters();
+
+    /// @notice Thrown when pair does not exist in factory
+    error PairDoesNotExist();
+
     /// @notice Deploy BofhContractV2 with base token and factory addresses
     /// @dev Validates addresses are non-zero, initializes immutable state
     /// @param baseToken_ Address of base token (WBNB, WETH, etc.) - all paths start/end here
@@ -75,8 +93,8 @@ contract BofhContractV2 is BofhContractBase {
         address baseToken_,
         address factory_
     ) BofhContractBase(msg.sender, baseToken_) {
-        require(baseToken_ != address(0), "Invalid base token");
-        require(factory_ != address(0), "Invalid factory");
+        if (baseToken_ == address(0)) revert InvalidBaseToken();
+        if (factory_ == address(0)) revert InvalidFactory();
         baseToken = baseToken_;
         factory = factory_;
     }
@@ -163,20 +181,16 @@ contract BofhContractV2 is BofhContractBase {
         });
 
         // Transfer initial amount from user
-        require(
-            IBEP20(baseToken).transferFrom(msg.sender, address(this), amountIn),
-            "Transfer failed"
-        );
+        if (!IBEP20(baseToken).transferFrom(msg.sender, address(this), amountIn)) {
+            revert TransferFailed();
+        }
 
         // Execute swaps along the path
         for (uint256 i = 0; i < lastIndex;) {
             state = executePathStep(
                 state,
                 path[i],
-                path[i + 1],
-                fees[i],
-                i,
-                lastIndex
+                path[i + 1]
             );
 
             unchecked {
@@ -192,10 +206,9 @@ contract BofhContractV2 is BofhContractBase {
         if (priceImpact > maxPriceImpact) revert ExcessiveSlippage();
 
         // Transfer profit to user
-        require(
-            IBEP20(baseToken).transfer(msg.sender, state.currentAmount),
-            "Transfer failed"
-        );
+        if (!IBEP20(baseToken).transfer(msg.sender, state.currentAmount)) {
+            revert TransferFailed();
+        }
 
         emit SwapExecuted(
             msg.sender,
@@ -282,30 +295,23 @@ contract BofhContractV2 is BofhContractBase {
         }
 
         // Verify total profitability
-        require(totalOutput > totalInput, "Unprofitable execution");
+        if (totalOutput <= totalInput) revert UnprofitableExecution();
         
         return outputs;
     }
 
     /// @notice Execute a single step in a multi-hop swap path
-    /// @dev Calculates optimal amount using golden ratio for path position, executes swap through pair
-    /// @dev Updates swap state with new amount and cumulative price impact
-    /// @param state Current swap state (token, amount, impact, history, gas)
+    /// @dev Executes swap through pair, updates swap state with new amount and cumulative price impact
+    /// @param state Current swap state (token, amount, impact)
     /// @param tokenIn Input token address for this step
     /// @param tokenOut Output token address for this step
-    /// @param fee Swap fee in basis points for this step
-    /// @param stepIndex Current step index in the path (0-indexed)
-    /// @param pathLength Total path length for golden ratio calculation
     /// @return Updated swap state with new currentAmount and cumulativeImpact
-    /// @custom:optimization Uses MathLib.calculateOptimalAmount for golden ratio distribution
     /// @custom:security Validates pool liquidity and calculates price impact before swap
+    /// @custom:optimization Removed unused parameters (fee, stepIndex, pathLength) for gas savings
     function executePathStep(
         SwapState memory state,
         address tokenIn,
-        address tokenOut,
-        uint256 fee,
-        uint256 stepIndex,
-        uint256 pathLength
+        address tokenOut
     ) private returns (SwapState memory) {
         // Get the pair address for these two tokens
         address pairAddress = _getPair(tokenIn, tokenOut);
@@ -328,7 +334,7 @@ contract BofhContractV2 is BofhContractBase {
         });
 
         // Validate pool state
-        require(PoolLib.validateSwap(pool, params), "Invalid swap parameters");
+        if (!PoolLib.validateSwap(pool, params)) revert InvalidSwapParameters();
 
         // Calculate expected output using constant product formula (x * y = k)
         // amountOut = (amountIn * reserveOut * 997) / (reserveIn * 1000 + amountIn * 997)
@@ -336,10 +342,9 @@ contract BofhContractV2 is BofhContractBase {
         state.cumulativeImpact += pool.priceImpact;
 
         // Transfer tokens to the pair contract (Uniswap V2 pattern)
-        require(
-            IBEP20(tokenIn).transfer(pairAddress, state.currentAmount),
-            "Transfer to pair failed"
-        );
+        if (!IBEP20(tokenIn).transfer(pairAddress, state.currentAmount)) {
+            revert TransferFailed();
+        }
 
         {
             uint256 balanceBefore = IBEP20(tokenOut).balanceOf(address(this));
@@ -377,7 +382,7 @@ contract BofhContractV2 is BofhContractBase {
         uint256 priceImpact,
         uint256 optimalityScore
     ) {
-        require(path.length >= 2 && path.length <= MAX_PATH_LENGTH, "Invalid path length");
+        if (path.length < 2 || path.length > MAX_PATH_LENGTH) revert InvalidPath();
         
         uint256 pathLength = path.length - 1;
         uint256 cumulativeImpact = 0;
@@ -411,7 +416,7 @@ contract BofhContractV2 is BofhContractBase {
     /// @return pair The pair contract address
     function _getPair(address tokenA, address tokenB) internal view returns (address pair) {
         pair = IFactory(factory).getPair(tokenA, tokenB);
-        require(pair != address(0), "Pair does not exist");
+        if (pair == address(0)) revert PairDoesNotExist();
     }
 
     /// @notice Get the base token address used for swaps
