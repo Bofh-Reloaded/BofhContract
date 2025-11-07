@@ -21,6 +21,7 @@ contract BofhContractV2 is BofhContractBase {
     }
 
     // Custom errors
+    // Existing errors
     error InvalidPath();
     error InsufficientOutput();
     error ExcessiveSlippage();
@@ -28,10 +29,61 @@ contract BofhContractV2 is BofhContractBase {
     error DeadlineExpired();
     error InsufficientLiquidity();
 
+    // New input validation errors (Issue #8)
+    error InvalidAddress();
+    error InvalidAmount();
+    error InvalidArrayLength();
+    error InvalidFee();
+
     constructor(
         address baseToken_
     ) BofhContractBase(msg.sender, baseToken_) {
         baseToken = baseToken_;
+    }
+
+    /// @dev Internal function to validate swap inputs (Issue #8)
+    /// @param path Token swap path
+    /// @param fees Fee array
+    /// @param amountIn Input amount
+    /// @param minAmountOut Minimum output amount
+    /// @param deadline Transaction deadline
+    /// @return pathLength Length of the path for gas optimization
+    function _validateSwapInputs(
+        address[] calldata path,
+        uint256[] calldata fees,
+        uint256 amountIn,
+        uint256 minAmountOut,
+        uint256 deadline
+    ) private view returns (uint256 pathLength) {
+        // 1. Deadline validation
+        if (deadline == 0) revert InvalidAmount();
+        if (block.timestamp > deadline) revert DeadlineExpired();
+
+        // 2. Array length validation
+        pathLength = path.length;
+        if (pathLength == 0) revert InvalidArrayLength();
+        if (pathLength < 2 || pathLength > MAX_PATH_LENGTH) revert InvalidPath();
+        if (pathLength != fees.length + 1) revert InvalidArrayLength();
+
+        // 3. Amount validation
+        if (amountIn == 0) revert InvalidAmount();
+        if (minAmountOut == 0) revert InvalidAmount();
+
+        // 4. Path address validation
+        for (uint256 i = 0; i < pathLength;) {
+            if (path[i] == address(0)) revert InvalidAddress();
+            unchecked { ++i; }
+        }
+
+        // 5. Path structure validation
+        if (path[0] != baseToken || path[pathLength - 1] != baseToken) revert InvalidPath();
+
+        // 6. Fee validation (fees must be reasonable, max 100% = 10000 bps)
+        uint256 maxFeeBps = 10000; // 100%
+        for (uint256 i = 0; i < fees.length;) {
+            if (fees[i] > maxFeeBps) revert InvalidFee();
+            unchecked { ++i; }
+        }
     }
 
     // Internal swap execution
@@ -42,12 +94,8 @@ contract BofhContractV2 is BofhContractBase {
         uint256 minAmountOut,
         uint256 deadline
     ) internal returns (uint256) {
-        // Validate inputs
-        if (block.timestamp > deadline) revert DeadlineExpired();
-        uint256 pathLength = path.length;
-        if (pathLength < 2 || pathLength > MAX_PATH_LENGTH) revert InvalidPath();
-        if (pathLength != fees.length + 1) revert InvalidPath();
-        if (path[0] != baseToken || path[pathLength - 1] != baseToken) revert InvalidPath();
+        // Comprehensive input validation (Issue #8)
+        uint256 pathLength = _validateSwapInputs(path, fees, amountIn, minAmountOut, deadline);
 
         // Initialize swap state
         uint256 lastIndex = pathLength - 1;
@@ -144,14 +192,28 @@ contract BofhContractV2 is BofhContractBase {
         uint256[] calldata minAmounts,
         uint256 deadline
     ) external override nonReentrant whenNotPaused returns (uint256[] memory) {
+        // === Comprehensive Input Validation (Issue #8) ===
+
+        // 1. Deadline validation
+        if (deadline == 0) revert InvalidAmount();
         if (block.timestamp > deadline) revert DeadlineExpired();
-        
-        uint256[] memory outputs = new uint256[](paths.length);
+
+        // 2. Array length consistency validation
+        uint256 numPaths = paths.length;
+        if (numPaths == 0) revert InvalidArrayLength();
+        if (numPaths != fees.length) revert InvalidArrayLength();
+        if (numPaths != amounts.length) revert InvalidArrayLength();
+        if (numPaths != minAmounts.length) revert InvalidArrayLength();
+
+        // 3. Per-path validation (will be done in _executeSwap for each path)
+        // Note: Individual path validations happen in _executeSwap
+
+        uint256[] memory outputs = new uint256[](numPaths);
         uint256 totalInput = 0;
         uint256 totalOutput = 0;
 
         // Execute each path
-        for (uint256 i = 0; i < paths.length;) {
+        for (uint256 i = 0; i < numPaths;) {
             unchecked {
                 totalInput += amounts[i];
                 outputs[i] = _executeSwap(
