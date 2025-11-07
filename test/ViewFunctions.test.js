@@ -177,7 +177,7 @@ describe("View Functions Tests", function () {
 
       await expect(
         bofh.getOptimalPathMetrics(path, amounts)
-      ).to.be.revertedWith("Invalid path length");
+      ).to.be.revertedWithCustomError(bofh, "InvalidPath");
     });
 
     it("Should reject path with length > MAX_PATH_LENGTH", async function () {
@@ -197,7 +197,7 @@ describe("View Functions Tests", function () {
 
       await expect(
         bofh.getOptimalPathMetrics(path, amounts)
-      ).to.be.revertedWith("Invalid path length");
+      ).to.be.revertedWithCustomError(bofh, "InvalidPath");
     });
 
     it("Should handle maximum valid path length", async function () {

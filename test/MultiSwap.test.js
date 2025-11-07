@@ -102,7 +102,7 @@ describe("Multi-Swap Execution Tests", function () {
       // Should revert because round-trips lose money to fees
       await expect(
         bofh.connect(user1).executeMultiSwap(paths, fees, amounts, minAmounts, deadline)
-      ).to.be.revertedWith("Unprofitable execution");
+      ).to.be.revertedWithCustomError(bofh, "UnprofitableExecution");
     });
 
     it("Should reject unprofitable 3-path execution", async function () {
@@ -128,7 +128,7 @@ describe("Multi-Swap Execution Tests", function () {
 
       await expect(
         bofh.connect(user1).executeMultiSwap(paths, fees, amounts, minAmounts, deadline)
-      ).to.be.revertedWith("Unprofitable execution");
+      ).to.be.revertedWithCustomError(bofh, "UnprofitableExecution");
     });
 
     it("Should reject unprofitable single path", async function () {
@@ -144,7 +144,7 @@ describe("Multi-Swap Execution Tests", function () {
 
       await expect(
         bofh.connect(user1).executeMultiSwap(paths, fees, amounts, minAmounts, deadline)
-      ).to.be.revertedWith("Unprofitable execution");
+      ).to.be.revertedWithCustomError(bofh, "UnprofitableExecution");
     });
   });
 
@@ -260,7 +260,7 @@ describe("Multi-Swap Execution Tests", function () {
       // Will revert due to unprofitability, but tests path length handling
       await expect(
         bofh.connect(user1).executeMultiSwap(paths, fees, amounts, minAmounts, deadline)
-      ).to.be.revertedWith("Unprofitable execution");
+      ).to.be.revertedWithCustomError(bofh, "UnprofitableExecution");
     });
   });
 });
