@@ -1,0 +1,548 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>Code coverage report for libs/PoolLib.sol</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../prettify.css" />
+    <link rel="stylesheet" href="../base.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../sort-arrow-sprite.png);
+        }
+    </style>
+</head>
+<body>
+<div class='wrapper'>
+  <div class='pad1'>
+    <h1>
+      <a href="../index.html">all files</a> / <a href="index.html">libs/</a> PoolLib.sol
+    </h1>
+    <div class='clearfix'>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">0% </span>
+        <span class="quiet">Statements</span>
+        <span class='fraction'>0/40</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">0% </span>
+        <span class="quiet">Branches</span>
+        <span class='fraction'>0/32</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">0% </span>
+        <span class="quiet">Functions</span>
+        <span class='fraction'>0/5</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">0% </span>
+        <span class="quiet">Lines</span>
+        <span class='fraction'>0/51</span>
+      </div>
+    </div>
+  </div>
+  <div class='status-line low'></div>
+<pre><table class="coverage">
+<tr><td class="line-count quiet">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+112
+113
+114
+115
+116
+117
+118
+119
+120
+121
+122
+123
+124
+125
+126
+127
+128
+129
+130
+131
+132
+133
+134
+135
+136
+137
+138
+139
+140
+141
+142
+143
+144
+145
+146
+147
+148
+149
+150
+151
+152
+153
+154
+155
+156
+157
+158
+159
+160
+161
+162</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// SPDX-License-Identifier: UNLICENSED
+pragma solidity &gt;=0.8.10;
+&nbsp;
+import "./MathLib.sol";
+import "../interfaces/ISwapInterfaces.sol";
+&nbsp;
+library PoolLib {
+    uint256 private constant PRECISION = 1e6;
+    uint256 private constant MIN_POOL_LIQUIDITY = 1000;
+&nbsp;
+    struct PoolState {
+        uint256 reserveIn;
+        uint256 reserveOut;
+        bool sellingToken0;
+        address tokenOut;
+        uint256 priceImpact;
+        uint256 depth;
+        uint256 volatility;
+        uint256 lastUpdateTimestamp;
+        uint256 volumeAccumulator;
+    }
+&nbsp;
+    struct SwapParams {
+        uint256 amountIn;
+        uint256 minAmountOut;
+        uint256 maxPriceImpact;
+        uint256 deadline;
+        uint256 maxSlippage;
+    }
+&nbsp;
+    // Enhanced pool analysis with volume tracking and volatility estimation
+<span class="fstat-no" title="function not covered" >    function analyzePool(</span>
+        address pool,
+        address tokenIn,
+        uint256 amountIn,
+        uint256 timestamp
+    ) internal view returns (PoolState memory state) {
+<span class="cstat-no" title="statement not covered" >        (uint256 reserve0, uint256 reserve1, uint256 lastTimestamp) = </span>
+            IGenericPair(pool).getReserves();
+        
+<span class="cstat-no" title="statement not covered" >        address token1 = IGenericPair(pool).token1();</span>
+        state.tokenOut = token1;
+        
+<span class="cstat-no" title="statement not covered" >        if (tokenIn != token1) {</span>
+<span class="cstat-no" title="statement not covered" >            address token0 = IGenericPair(pool).token0();</span>
+<span class="cstat-no" title="statement not covered" >            require(tokenIn == token0, "Invalid token")</span>;
+            state.reserveIn = reserve0;
+            state.reserveOut = reserve1;
+            state.sellingToken0 = true;
+        } else {
+            state.tokenOut = IGenericPair(pool).token0();
+            state.reserveIn = reserve1;
+            state.reserveOut = reserve0;
+            state.sellingToken0 = false;
+        }
+&nbsp;
+<span class="cstat-no" title="statement not covered" >        require(</span>
+            state.reserveIn &gt;= MIN_POOL_LIQUIDITY &amp;&amp; 
+            state.reserveOut &gt;= MIN_POOL_LIQUIDITY,
+            "Insufficient liquidity"
+        );
+&nbsp;
+        // Calculate advanced metrics
+        state.depth = MathLib.sqrt(state.reserveIn * state.reserveOut);
+        state.volatility = calculateVolatility(state, lastTimestamp, timestamp);
+        state.priceImpact = calculatePriceImpact(amountIn, state);
+        state.lastUpdateTimestamp = timestamp;
+        
+<span class="cstat-no" title="statement not covered" >        return state;</span>
+    }
+&nbsp;
+    // Enhanced price impact calculation with slippage protection
+<span class="fstat-no" title="function not covered" >    function calculatePriceImpact(</span>
+        uint256 amountIn,
+        PoolState memory pool
+    ) internal pure returns (uint256) {
+<span class="cstat-no" title="statement not covered" >        if (amountIn == 0) <span class="cstat-no" title="statement not covered" >return 0;</span></span>
+        
+<span class="cstat-no" title="statement not covered" >        uint256 k = pool.reserveIn * pool.reserveOut;</span>
+<span class="cstat-no" title="statement not covered" >        uint256 newReserveIn = pool.reserveIn + amountIn;</span>
+<span class="cstat-no" title="statement not covered" >        uint256 newReserveOut = k / newReserveIn;</span> // New reserve after swap
+        
+        // Calculate price impact as percentage change
+<span class="cstat-no" title="statement not covered" >        uint256 oldPrice = (pool.reserveOut * PRECISION) / pool.reserveIn;</span>
+<span class="cstat-no" title="statement not covered" >        uint256 newPrice = (newReserveOut * PRECISION) / newReserveIn;</span>
+        
+<span class="cstat-no" title="statement not covered" >        if (newPrice &gt;= oldPrice) <span class="cstat-no" title="statement not covered" >return 0;</span></span>
+        
+<span class="cstat-no" title="statement not covered" >        return ((oldPrice - newPrice) * PRECISION) / oldPrice;</span>
+    }
+&nbsp;
+    // Volatility calculation using exponential moving average
+<span class="fstat-no" title="function not covered" >    function calculateVolatility(</span>
+        PoolState memory pool,
+        uint256 lastTimestamp,
+        uint256 currentTimestamp
+    ) internal pure returns (uint256) {
+<span class="cstat-no" title="statement not covered" >        if (lastTimestamp &gt;= currentTimestamp) <span class="cstat-no" title="statement not covered" >return pool.volatility;</span></span>
+        
+<span class="cstat-no" title="statement not covered" >        uint256 timeDelta = currentTimestamp - lastTimestamp;</span>
+<span class="cstat-no" title="statement not covered" >        if (timeDelta == 0) <span class="cstat-no" title="statement not covered" >return pool.volatility;</span></span>
+        
+        // Calculate price change
+<span class="cstat-no" title="statement not covered" >        uint256 currentPrice = (pool.reserveOut * PRECISION) / pool.reserveIn;</span>
+<span class="cstat-no" title="statement not covered" >        uint256 priceChange = pool.volatility &gt; currentPrice ? </span>
+            pool.volatility - currentPrice : 
+            currentPrice - pool.volatility;
+            
+        // Exponential decay factor based on time delta
+<span class="cstat-no" title="statement not covered" >        uint256 decay = MathLib.exp2(PRECISION * timeDelta / 1 days);</span>
+        
+<span class="cstat-no" title="statement not covered" >        return (pool.volatility * decay + priceChange * (PRECISION - decay)) / PRECISION;</span>
+    }
+&nbsp;
+    // Calculate optimal swap amounts considering pool depth and volatility
+<span class="fstat-no" title="function not covered" >    function calculateOptimalSwapAmount(</span>
+        PoolState memory pool,
+        SwapParams memory params
+    ) internal pure returns (uint256 optimalAmount, uint256 expectedOutput) {
+        // Base optimal amount using square root formula
+        optimalAmount = MathLib.sqrt(
+            (params.amountIn * pool.reserveIn * PRECISION) / 
+            (pool.depth * (PRECISION + pool.volatility))
+        );
+        
+        // Adjust for price impact
+<span class="cstat-no" title="statement not covered" >        uint256 priceImpact = calculatePriceImpact(optimalAmount, pool);</span>
+<span class="cstat-no" title="statement not covered" >        if (priceImpact &gt; params.maxPriceImpact) {</span>
+            // Reduce amount to meet price impact constraint
+            optimalAmount = (optimalAmount * params.maxPriceImpact) / priceImpact;
+        }
+        
+        // Calculate expected output
+<span class="cstat-no" title="statement not covered" >        uint256 numerator = optimalAmount * pool.reserveOut;</span>
+<span class="cstat-no" title="statement not covered" >        uint256 denominator = pool.reserveIn + optimalAmount;</span>
+        expectedOutput = (numerator * (PRECISION - params.maxSlippage)) / (denominator * PRECISION);
+        
+        // Ensure minimum output is met
+<span class="cstat-no" title="statement not covered" >        require(expectedOutput &gt;= params.minAmountOut, "Insufficient output amount")</span>;
+        
+<span class="cstat-no" title="statement not covered" >        return (optimalAmount, expectedOutput);</span>
+    }
+&nbsp;
+    // Validate pool state and parameters
+<span class="fstat-no" title="function not covered" >    function validateSwap(</span>
+        PoolState memory pool,
+        SwapParams memory params
+    ) internal view returns (bool) {
+<span class="cstat-no" title="statement not covered" >        require(params.deadline &gt;= block.timestamp, "Deadline expired")</span>;
+<span class="cstat-no" title="statement not covered" >        require(params.amountIn &gt; 0, "Invalid amount")</span>;
+<span class="cstat-no" title="statement not covered" >        require(params.maxPriceImpact &lt;= PRECISION / 10, "Excessive price impact")</span>; // Max 10%
+        
+<span class="cstat-no" title="statement not covered" >        uint256 priceImpact = calculatePriceImpact(params.amountIn, pool);</span>
+<span class="cstat-no" title="statement not covered" >        require(priceImpact &lt;= params.maxPriceImpact, "Price impact too high")</span>;
+        
+        // Check for extreme pool conditions
+<span class="cstat-no" title="statement not covered" >        require(pool.volatility &lt;= PRECISION / 2, "Pool too volatile")</span>; // Max 50% volatility
+<span class="cstat-no" title="statement not covered" >        require(pool.depth &gt;= MIN_POOL_LIQUIDITY * 10, "Pool too shallow")</span>;
+        
+<span class="cstat-no" title="statement not covered" >        return true;</span>
+    }
+}</pre></td></tr>
+</table></pre>
+<div class='push'></div><!-- for sticky footer -->
+</div><!-- /wrapper -->
+<div class='footer quiet pad2 space-top1 center small'>
+  Code coverage
+  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Fri Nov 07 2025 15:52:38 GMT+0100 (Central European Standard Time)
+</div>
+</div>
+<script src="../prettify.js"></script>
+<script>
+window.onload = function () {
+        if (typeof prettyPrint === 'function') {
+            prettyPrint();
+        }
+};
+</script>
+<script src="../sorter.js"></script>
+</body>
+</html>

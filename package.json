@@ -3,11 +3,16 @@
   "version": "1.1.0",
   "main": "index.js",
   "scripts": {
-    "migrate": "truffle migrate --network bscTestnet --reset",
-    "compile": "truffle compile --network bscTestnet",
-    "test": "truffle test",
-    "coverage": "truffle run coverage",
-    "verify": "truffle run verify BofhContract@{your contract address} --network bscTestnet"
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "coverage": "hardhat coverage",
+    "deploy:testnet": "hardhat run scripts/deploy.js --network bscTestnet",
+    "verify": "hardhat verify --network bscTestnet",
+    "security": "./scripts/security-scan.sh",
+    "security:install": "pip install slither-analyzer",
+    "migrate:truffle": "truffle migrate --network bscTestnet --reset",
+    "compile:truffle": "truffle compile --network bscTestnet",
+    "test:truffle": "truffle test"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^4.9.6",
@@ -17,8 +22,22 @@
     "truffle-flattener": "^1.6.0"
   },
   "devDependencies": {
+    "@nomicfoundation/hardhat-chai-matchers": "^2.1.0",
+    "@nomicfoundation/hardhat-ethers": "^3.1.2",
+    "@nomicfoundation/hardhat-network-helpers": "^1.1.2",
+    "@nomicfoundation/hardhat-toolbox": "^3.0.0",
+    "@nomicfoundation/hardhat-verify": "^1.1.1",
+    "@typechain/ethers-v6": "^0.4.3",
+    "@typechain/hardhat": "^9.1.0",
+    "@types/mocha": "^10.0.10",
     "chai": "^4.3.10",
+    "ethers": "^6.15.0",
+    "hardhat": "^2.27.0",
+    "hardhat-gas-reporter": "^2.3.0",
     "solidity-coverage": "^0.8.5",
-    "truffle-plugin-verify": "^0.6.7"
+    "truffle-plugin-verify": "^0.6.7",
+    "ts-node": "^10.9.2",
+    "typechain": "^8.3.2",
+    "typescript": "^5.9.3"
   }
 }

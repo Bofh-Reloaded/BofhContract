@@ -25,6 +25,26 @@ abstract contract BofhContractBase {
     uint256 public minPoolLiquidity;
     uint256 public maxPriceImpact;
     uint256 public sandwichProtectionBips;
+
+    // MEV Protection (Issue #9)
+    struct RateLimitState {
+        uint256 lastBlockNumber;
+        uint256 transactionsThisBlock;
+        uint256 lastTransactionTimestamp;
+    }
+    mapping(address => RateLimitState) private rateLimits;
+
+    // MEV Protection Configuration
+    bool public mevProtectionEnabled;
+    uint256 public maxTxPerBlock = 3;
+    uint256 public minTxDelay = 12; // seconds
+
+    // MEV Protection Events
+    event MEVProtectionUpdated(bool enabled, uint256 maxTxPerBlock, uint256 minTxDelay);
+
+    // MEV Protection Errors
+    error FlashLoanDetected();
+    error RateLimitExceeded();
     
     // Events
     event PoolBlacklisted(address indexed pool, bool blacklisted);
@@ -57,6 +77,37 @@ abstract contract BofhContractBase {
         securityState.enterProtectedSection(msg.sig);
         _;
         securityState.exitProtectedSection();
+    }
+
+    /// @dev MEV protection modifier (Issue #9)
+    /// @notice Prevents flash loan attacks and rate limits transactions (if enabled)
+    modifier antiMEV() {
+        if (mevProtectionEnabled) {
+            RateLimitState storage limit = rateLimits[msg.sender];
+
+            // Detect flash loan (multiple transactions in same block)
+            if (limit.lastBlockNumber == block.number) {
+                limit.transactionsThisBlock++;
+                if (limit.transactionsThisBlock > maxTxPerBlock) {
+                    revert FlashLoanDetected();
+                }
+            } else {
+                limit.lastBlockNumber = block.number;
+                limit.transactionsThisBlock = 1;
+            }
+
+            // Enforce minimum delay between transactions
+            if (block.timestamp - limit.lastTransactionTimestamp < minTxDelay) {
+                revert RateLimitExceeded();
+            }
+
+            _;
+
+            // Update timestamp after successful execution
+            limit.lastTransactionTimestamp = block.timestamp;
+        } else {
+            _;
+        }
     }
 
     // Constructor
@@ -104,7 +155,26 @@ abstract contract BofhContractBase {
         blacklistedPools[pool] = blacklisted;
         emit PoolBlacklisted(pool, blacklisted);
     }
-    
+
+    /// @notice Configure MEV protection parameters (Issue #9)
+    /// @param enabled Enable or disable MEV protection
+    /// @param _maxTxPerBlock Maximum transactions per block per address
+    /// @param _minTxDelay Minimum seconds between transactions per address
+    function configureMEVProtection(
+        bool enabled,
+        uint256 _maxTxPerBlock,
+        uint256 _minTxDelay
+    ) external onlyOwner {
+        require(_maxTxPerBlock > 0, "Invalid max tx per block");
+        require(_minTxDelay > 0, "Invalid min tx delay");
+
+        mevProtectionEnabled = enabled;
+        maxTxPerBlock = _maxTxPerBlock;
+        minTxDelay = _minTxDelay;
+
+        emit MEVProtectionUpdated(enabled, _maxTxPerBlock, _minTxDelay);
+    }
+
     // Emergency functions
     function emergencyPause() external onlyOwner {
         securityState.emergencyPause();
@@ -126,7 +196,15 @@ abstract contract BofhContractBase {
         securityState.setOperator(operator, status);
     }
 
-    // Virtual functions to be implemented by derived contracts
+    /// @notice Virtual swap execution function to be implemented by derived contracts
+    /// @dev SECURITY REQUIREMENT: Override MUST include nonReentrant and whenNotPaused modifiers
+    /// @dev Access control: Public execution is allowed, but protected by circuit breakers
+    /// @param path Array of token addresses representing the swap path
+    /// @param fees Array of fee amounts for each swap step
+    /// @param amountIn Input amount for the swap
+    /// @param minAmountOut Minimum acceptable output amount (slippage protection)
+    /// @param deadline Unix timestamp after which the transaction will revert
+    /// @return The actual output amount from the swap
     function executeSwap(
         address[] calldata path,
         uint256[] calldata fees,
@@ -134,7 +212,16 @@ abstract contract BofhContractBase {
         uint256 minAmountOut,
         uint256 deadline
     ) external virtual returns (uint256);
-    
+
+    /// @notice Virtual multi-path swap execution function to be implemented by derived contracts
+    /// @dev SECURITY REQUIREMENT: Override MUST include nonReentrant and whenNotPaused modifiers
+    /// @dev Access control: Public execution is allowed, but protected by circuit breakers
+    /// @param paths Array of swap paths, each path is an array of token addresses
+    /// @param fees Array of fee arrays, one per path
+    /// @param amounts Array of input amounts, one per path
+    /// @param minAmounts Array of minimum output amounts, one per path
+    /// @param deadline Unix timestamp after which the transaction will revert
+    /// @return Array of actual output amounts from each swap path
     function executeMultiSwap(
         address[][] calldata paths,
         uint256[][] calldata fees,
@@ -142,4 +229,60 @@ abstract contract BofhContractBase {
         uint256[] calldata minAmounts,
         uint256 deadline
     ) external virtual returns (uint256[] memory);
+
+    // View functions for testing and external integrations
+
+    /// @notice Get the contract administrator address
+    /// @return The address of the contract owner
+    function getAdmin() external view returns (address) {
+        return securityState.owner;
+    }
+
+    /// @notice Get all risk management parameters
+    /// @return maxVolume Maximum trade volume allowed
+    /// @return minLiquidity Minimum pool liquidity required
+    /// @return maxImpact Maximum price impact allowed (in PRECISION units)
+    /// @return sandwichProtection Sandwich attack protection in basis points
+    function getRiskParameters() external view returns (
+        uint256 maxVolume,
+        uint256 minLiquidity,
+        uint256 maxImpact,
+        uint256 sandwichProtection
+    ) {
+        return (
+            maxTradeVolume,
+            minPoolLiquidity,
+            maxPriceImpact,
+            sandwichProtectionBips
+        );
+    }
+
+    /// @notice Check if a pool is blacklisted
+    /// @param pool The address of the pool to check
+    /// @return True if the pool is blacklisted, false otherwise
+    function isPoolBlacklisted(address pool) external view returns (bool) {
+        return blacklistedPools[pool];
+    }
+
+    /// @notice Check if the contract is currently paused
+    /// @return True if paused, false if active
+    function isPaused() external view returns (bool) {
+        return securityState.paused;
+    }
+
+    /// @notice Get MEV protection configuration
+    /// @return enabled Whether MEV protection is enabled
+    /// @return maxTx Maximum transactions per block
+    /// @return minDelay Minimum delay between transactions in seconds
+    function getMEVProtectionConfig() external view returns (
+        bool enabled,
+        uint256 maxTx,
+        uint256 minDelay
+    ) {
+        return (
+            mevProtectionEnabled,
+            maxTxPerBlock,
+            minTxDelay
+        );
+    }
 }

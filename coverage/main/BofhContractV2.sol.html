@@ -1,0 +1,1079 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>Code coverage report for main/BofhContractV2.sol</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../prettify.css" />
+    <link rel="stylesheet" href="../base.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../sort-arrow-sprite.png);
+        }
+    </style>
+</head>
+<body>
+<div class='wrapper'>
+  <div class='pad1'>
+    <h1>
+      <a href="../index.html">all files</a> / <a href="index.html">main/</a> BofhContractV2.sol
+    </h1>
+    <div class='clearfix'>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">29.09% </span>
+        <span class="quiet">Statements</span>
+        <span class='fraction'>16/55</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">38.71% </span>
+        <span class="quiet">Branches</span>
+        <span class='fraction'>24/62</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">62.5% </span>
+        <span class="quiet">Functions</span>
+        <span class='fraction'>5/8</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">24.05% </span>
+        <span class="quiet">Lines</span>
+        <span class='fraction'>19/79</span>
+      </div>
+    </div>
+  </div>
+  <div class='status-line low'></div>
+<pre><table class="coverage">
+<tr><td class="line-count quiet">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+112
+113
+114
+115
+116
+117
+118
+119
+120
+121
+122
+123
+124
+125
+126
+127
+128
+129
+130
+131
+132
+133
+134
+135
+136
+137
+138
+139
+140
+141
+142
+143
+144
+145
+146
+147
+148
+149
+150
+151
+152
+153
+154
+155
+156
+157
+158
+159
+160
+161
+162
+163
+164
+165
+166
+167
+168
+169
+170
+171
+172
+173
+174
+175
+176
+177
+178
+179
+180
+181
+182
+183
+184
+185
+186
+187
+188
+189
+190
+191
+192
+193
+194
+195
+196
+197
+198
+199
+200
+201
+202
+203
+204
+205
+206
+207
+208
+209
+210
+211
+212
+213
+214
+215
+216
+217
+218
+219
+220
+221
+222
+223
+224
+225
+226
+227
+228
+229
+230
+231
+232
+233
+234
+235
+236
+237
+238
+239
+240
+241
+242
+243
+244
+245
+246
+247
+248
+249
+250
+251
+252
+253
+254
+255
+256
+257
+258
+259
+260
+261
+262
+263
+264
+265
+266
+267
+268
+269
+270
+271
+272
+273
+274
+275
+276
+277
+278
+279
+280
+281
+282
+283
+284
+285
+286
+287
+288
+289
+290
+291
+292
+293
+294
+295
+296
+297
+298
+299
+300
+301
+302
+303
+304
+305
+306
+307
+308
+309
+310
+311
+312
+313
+314
+315
+316
+317
+318
+319
+320
+321
+322
+323
+324
+325
+326
+327
+328
+329
+330
+331
+332
+333
+334
+335
+336
+337
+338
+339</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">10×</span>
+<span class="cline-any cline-yes">10×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">8×</span>
+<span class="cline-any cline-yes">8×</span>
+<span class="cline-any cline-yes">7×</span>
+<span class="cline-any cline-yes">6×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5×</span>
+<span class="cline-any cline-yes">4×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3×</span>
+<span class="cline-any cline-yes">9×</span>
+<span class="cline-any cline-yes">9×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">10×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">10×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// SPDX-License-Identifier: UNLICENSED
+pragma solidity &gt;=0.8.10;
+&nbsp;
+import "./BofhContractBase.sol";
+&nbsp;
+contract BofhContractV2 is BofhContractBase {
+    using MathLib for uint256;
+    using PoolLib for PoolLib.PoolState;
+&nbsp;
+    // Immutable state
+    address private immutable baseToken;
+&nbsp;
+    // Optimized swap state tracking
+    struct SwapState {
+        address currentToken;
+        uint256 currentAmount;
+        uint256 cumulativeImpact;
+        uint256[] historicalAmounts;
+        uint256 startTime;
+        uint256 gasUsed;
+    }
+&nbsp;
+    // Custom errors
+    // Existing errors
+    error InvalidPath();
+    error InsufficientOutput();
+    error ExcessiveSlippage();
+    error PathTooLong();
+    error DeadlineExpired();
+    error InsufficientLiquidity();
+&nbsp;
+    // New input validation errors (Issue #8)
+    error InvalidAddress();
+    error InvalidAmount();
+    error InvalidArrayLength();
+    error InvalidFee();
+&nbsp;
+    constructor(
+        address baseToken_
+    ) BofhContractBase(msg.sender, baseToken_) {
+        baseToken = baseToken_;
+    }
+&nbsp;
+    /// @dev Internal function to validate swap inputs (Issue #8)
+    /// @param path Token swap path
+    /// @param fees Fee array
+    /// @param amountIn Input amount
+    /// @param minAmountOut Minimum output amount
+    /// @param deadline Transaction deadline
+    /// @return pathLength Length of the path for gas optimization
+    function _validateSwapInputs(
+        address[] calldata path,
+        uint256[] calldata fees,
+        uint256 amountIn,
+        uint256 minAmountOut,
+        uint256 deadline
+    ) private view returns (uint256 pathLength) {
+        // 1. Deadline validation
+        <span class="missing-if-branch" title="if path not taken" >I</span>if (deadline == 0) revert InvalidAmount();
+        if (block.timestamp &gt; deadline) revert DeadlineExpired();
+&nbsp;
+        // 2. Array length validation
+        pathLength = path.length;
+        if (pathLength == 0) revert InvalidArrayLength();
+        if (<span class="branch-0 cbranch-no" title="branch not covered" >pathLength &lt; 2</span> || pathLength &gt; MAX_PATH_LENGTH) revert InvalidPath();
+        if (pathLength != fees.length + 1) revert InvalidArrayLength();
+&nbsp;
+        // 3. Amount validation
+        if (amountIn == 0) revert InvalidAmount();
+        if (minAmountOut == 0) revert InvalidAmount();
+&nbsp;
+        // 4. Path address validation
+        for (uint256 i = 0; i &lt; pathLength;) {
+            <span class="missing-if-branch" title="if path not taken" >I</span>if (path[i] == address(0)) revert InvalidAddress();
+            unchecked { ++i; }
+        }
+&nbsp;
+        // 5. Path structure validation
+        if (path[0] != baseToken || path[pathLength - 1] != baseToken) revert InvalidPath();
+&nbsp;
+        // 6. Fee validation (fees must be reasonable, max 100% = 10000 bps)
+        uint256 maxFeeBps = 10000; // 100%
+        for (uint256 i = 0; i &lt; fees.length;) {
+            <span class="missing-if-branch" title="else path not taken" >E</span>if (fees[i] &gt; maxFeeBps) revert InvalidFee();
+            unchecked { ++i; }
+        }
+    }
+&nbsp;
+    // Internal swap execution
+    function _executeSwap(
+        address[] calldata path,
+        uint256[] calldata fees,
+        uint256 amountIn,
+        uint256 minAmountOut,
+        uint256 deadline
+    ) internal returns (uint256) {
+        // Comprehensive input validation (Issue #8)
+        uint256 pathLength = _validateSwapInputs(path, fees, amountIn, minAmountOut, deadline);
+&nbsp;
+        // Initialize swap state
+<span class="cstat-no" title="statement not covered" >        uint256 lastIndex = pathLength - 1;</span>
+<span class="cstat-no" title="statement not covered" >        SwapState memory state = SwapState({</span>
+            currentToken: baseToken,
+            currentAmount: amountIn,
+            cumulativeImpact: 0,
+            historicalAmounts: new uint256[](lastIndex),
+            startTime: block.timestamp,
+            gasUsed: 0
+        });
+&nbsp;
+        // Transfer initial amount from user
+<span class="cstat-no" title="statement not covered" >        require(</span>
+            IBEP20(baseToken).transferFrom(msg.sender, address(this), amountIn),
+            "Transfer failed"
+        );
+&nbsp;
+        // Execute swaps along the path
+<span class="cstat-no" title="statement not covered" >        for (uint256 i = 0; i &lt; lastIndex;) {</span>
+<span class="cstat-no" title="statement not covered" >            uint256 gasStart = gasleft();</span>
+&nbsp;
+            state = executePathStep(
+                state,
+                path[i],
+                path[i + 1],
+                fees[i],
+                i,
+                lastIndex
+            );
+            
+            unchecked {
+                state.gasUsed += gasStart - gasleft();
+                ++i;
+            }
+        }
+&nbsp;
+        // Validate final output
+<span class="cstat-no" title="statement not covered" >        if (state.currentAmount &lt; minAmountOut) revert InsufficientOutput();</span>
+        
+        // Calculate total price impact and validate
+<span class="cstat-no" title="statement not covered" >        uint256 priceImpact = (state.cumulativeImpact * PRECISION) / amountIn;</span>
+<span class="cstat-no" title="statement not covered" >        if (priceImpact &gt; maxPriceImpact) revert ExcessiveSlippage();</span>
+&nbsp;
+        // Transfer profit to user
+<span class="cstat-no" title="statement not covered" >        require(</span>
+            IBEP20(baseToken).transfer(msg.sender, state.currentAmount),
+            "Transfer failed"
+        );
+&nbsp;
+<span class="cstat-no" title="statement not covered" >        emit SwapExecuted(</span>
+            msg.sender,
+            pathLength,
+            amountIn,
+            state.currentAmount,
+            priceImpact
+        );
+&nbsp;
+<span class="cstat-no" title="statement not covered" >        return state.currentAmount;</span>
+    }
+&nbsp;
+    /// @notice Execute a swap through a single path
+    /// @dev Implements virtual function from BofhContractBase with required security modifiers
+    /// @dev Protected by: nonReentrant (reentrancy guard), whenNotPaused (circuit breaker), antiMEV (flash loan protection)
+    /// @dev MEV Protection (Issue #9): Limits transactions per block and enforces delay between transactions
+    /// @param path Array of token addresses representing the swap path
+    /// @param fees Array of fee amounts for each swap step
+    /// @param amountIn Input amount for the swap
+    /// @param minAmountOut Minimum acceptable output amount (slippage protection)
+    /// @param deadline Unix timestamp after which the transaction will revert
+    /// @return The actual output amount from the swap
+    function executeSwap(
+        address[] calldata path,
+        uint256[] calldata fees,
+        uint256 amountIn,
+        uint256 minAmountOut,
+        uint256 deadline
+    ) external override <span class="missing-if-branch" title="else path not taken" >E</span>nonReentrant whenNotPaused <span class="missing-if-branch" title="else path not taken" >E</span>antiMEV returns (uint256) {
+        return _executeSwap(path, fees, amountIn, minAmountOut, deadline);
+    }
+&nbsp;
+    /// @notice Execute multiple swaps through different paths in parallel
+    /// @dev Implements virtual function from BofhContractBase with required security modifiers
+    /// @dev Protected by: nonReentrant (reentrancy guard), whenNotPaused (circuit breaker)
+    /// @dev NOTE: antiMEV modifier not applied here due to stack depth limitations
+    /// @param paths Array of swap paths, each path is an array of token addresses
+    /// @param fees Array of fee arrays, one per path
+    /// @param amounts Array of input amounts, one per path
+    /// @param minAmounts Array of minimum output amounts, one per path
+    /// @param deadline Unix timestamp after which the transaction will revert
+    /// @return Array of actual output amounts from each swap path
+<span class="fstat-no" title="function not covered" >    function executeMultiSwap(</span>
+        address[][] calldata paths,
+        uint256[][] calldata fees,
+        uint256[] calldata amounts,
+        uint256[] calldata minAmounts,
+        uint256 deadline
+    ) external override nonReentrant whenNotPaused returns (uint256[] memory) {
+        // === Comprehensive Input Validation (Issue #8) ===
+&nbsp;
+        // 1. Deadline validation
+<span class="cstat-no" title="statement not covered" >        if (deadline == 0) revert InvalidAmount();</span>
+<span class="cstat-no" title="statement not covered" >        if (block.timestamp &gt; deadline) revert DeadlineExpired();</span>
+&nbsp;
+        // 2. Array length consistency validation
+<span class="cstat-no" title="statement not covered" >        uint256 numPaths = paths.length;</span>
+<span class="cstat-no" title="statement not covered" >        if (numPaths == 0) revert InvalidArrayLength();</span>
+<span class="cstat-no" title="statement not covered" >        if (numPaths != fees.length) revert InvalidArrayLength();</span>
+<span class="cstat-no" title="statement not covered" >        if (numPaths != amounts.length) revert InvalidArrayLength();</span>
+<span class="cstat-no" title="statement not covered" >        if (numPaths != minAmounts.length) revert InvalidArrayLength();</span>
+&nbsp;
+        // 3. Per-path validation (will be done in _executeSwap for each path)
+        // Note: Individual path validations happen in _executeSwap
+&nbsp;
+<span class="cstat-no" title="statement not covered" >        uint256[] memory outputs = new uint256[](numPaths);</span>
+<span class="cstat-no" title="statement not covered" >        uint256 totalInput = 0;</span>
+<span class="cstat-no" title="statement not covered" >        uint256 totalOutput = 0;</span>
+&nbsp;
+        // Execute each path
+<span class="cstat-no" title="statement not covered" >        for (uint256 i = 0; i &lt; numPaths;) {</span>
+            unchecked {
+                totalInput += amounts[i];
+                outputs[i] = _executeSwap(
+                    paths[i],
+                    fees[i],
+                    amounts[i],
+                    minAmounts[i],
+                    deadline
+                );
+                totalOutput += outputs[i];
+                ++i;
+            }
+        }
+&nbsp;
+        // Verify total profitability
+<span class="cstat-no" title="statement not covered" >        require(totalOutput &gt; totalInput, "Unprofitable execution")</span>;
+        
+<span class="cstat-no" title="statement not covered" >        return outputs;</span>
+    }
+&nbsp;
+    // Internal optimized swap step execution
+<span class="fstat-no" title="function not covered" >    function executePathStep(</span>
+        SwapState memory state,
+        address tokenIn,
+        address tokenOut,
+        uint256 fee,
+        uint256 stepIndex,
+        uint256 pathLength
+    ) private returns (SwapState memory) {
+        // Analyze pool state
+<span class="cstat-no" title="statement not covered" >        PoolLib.PoolState memory pool = PoolLib.analyzePool(</span>
+            tokenIn, // Using tokenIn as pool address since it's passed directly in path
+            tokenIn,
+            state.currentAmount,
+            block.timestamp
+        );
+&nbsp;
+        // Calculate optimal swap parameters
+<span class="cstat-no" title="statement not covered" >        PoolLib.SwapParams memory params = PoolLib.SwapParams({</span>
+            amountIn: state.currentAmount,
+            minAmountOut: 0, // Calculated dynamically
+            maxPriceImpact: maxPriceImpact,
+            deadline: block.timestamp + 1, // Immediate execution
+            maxSlippage: MAX_SLIPPAGE
+        });
+&nbsp;
+        // Validate pool state
+<span class="cstat-no" title="statement not covered" >        require(PoolLib.validateSwap(pool, params), "Invalid swap parameters")</span>;
+&nbsp;
+        // Calculate optimal amounts
+<span class="cstat-no" title="statement not covered" >        (uint256 optimalAmount, uint256 expectedOutput) = </span>
+            PoolLib.calculateOptimalSwapAmount(pool, params);
+&nbsp;
+        // Update state with optimal values
+        state.currentAmount = optimalAmount;
+        state.historicalAmounts[stepIndex] = expectedOutput;
+        state.cumulativeImpact += pool.priceImpact;
+&nbsp;
+        // Execute optimized swap
+<span class="cstat-no" title="statement not covered" >        require(</span>
+            IBEP20(tokenIn).approve(tokenIn, optimalAmount),
+            "Approve failed"
+        );
+&nbsp;
+<span class="cstat-no" title="statement not covered" >        uint256 balanceBefore = IBEP20(tokenOut).balanceOf(address(this));</span>
+        
+<span class="cstat-no" title="statement not covered" >        IGenericPair(tokenIn).swap(</span>
+            pool.sellingToken0 ? 0 : expectedOutput,
+            pool.sellingToken0 ? expectedOutput : 0,
+            address(this),
+            new bytes(0)
+        );
+&nbsp;
+<span class="cstat-no" title="statement not covered" >        uint256 balanceAfter = IBEP20(tokenOut).balanceOf(address(this));</span>
+        state.currentAmount = balanceAfter - balanceBefore;
+        state.currentToken = tokenOut;
+&nbsp;
+<span class="cstat-no" title="statement not covered" >        return state;</span>
+    }
+&nbsp;
+    // View functions
+<span class="fstat-no" title="function not covered" >    function getOptimalPathMetrics(</span>
+        address[] calldata path,
+        uint256[] calldata amounts
+    ) external view returns (
+        uint256 expectedOutput,
+        uint256 priceImpact,
+        uint256 optimalityScore
+    ) {
+<span class="cstat-no" title="statement not covered" >        require(path.length &gt;= 2 &amp;&amp; path.length &lt;= MAX_PATH_LENGTH, "Invalid path length")</span>;
+        
+<span class="cstat-no" title="statement not covered" >        uint256 pathLength = path.length - 1;</span>
+<span class="cstat-no" title="statement not covered" >        uint256 cumulativeImpact = 0;</span>
+        expectedOutput = amounts[0];
+        
+<span class="cstat-no" title="statement not covered" >        for (uint256 i = 0; i &lt; pathLength;) {</span>
+<span class="cstat-no" title="statement not covered" >            PoolLib.PoolState memory pool = PoolLib.analyzePool(</span>
+                path[i],
+                path[i + 1],
+                expectedOutput,
+                block.timestamp
+            );
+            
+            cumulativeImpact += pool.priceImpact;
+            expectedOutput = (expectedOutput * (PRECISION - pool.priceImpact)) / PRECISION;
+            
+            unchecked { ++i; }
+        }
+        
+        priceImpact = cumulativeImpact;
+        optimalityScore = (expectedOutput * PRECISION) / amounts[0];
+&nbsp;
+<span class="cstat-no" title="statement not covered" >        return (expectedOutput, priceImpact, optimalityScore);</span>
+    }
+&nbsp;
+    /// @notice Get the base token address used for swaps
+    /// @return The address of the base token
+    function getBaseToken() external view returns (address) {
+        return baseToken;
+    }
+}</pre></td></tr>
+</table></pre>
+<div class='push'></div><!-- for sticky footer -->
+</div><!-- /wrapper -->
+<div class='footer quiet pad2 space-top1 center small'>
+  Code coverage
+  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Fri Nov 07 2025 15:52:38 GMT+0100 (Central European Standard Time)
+</div>
+</div>
+<script src="../prettify.js"></script>
+<script>
+window.onload = function () {
+        if (typeof prettyPrint === 'function') {
+            prettyPrint();
+        }
+};
+</script>
+<script src="../sorter.js"></script>
+</body>
+</html>
