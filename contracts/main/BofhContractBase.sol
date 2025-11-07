@@ -17,7 +17,7 @@ abstract contract BofhContractBase {
     uint256 internal constant PRECISION = 1e6;
     uint256 internal constant MAX_SLIPPAGE = PRECISION / 100; // 1%
     uint256 internal constant MIN_OPTIMALITY = PRECISION / 2; // 50%
-    uint256 internal constant MAX_PATH_LENGTH = 5;
+    uint256 internal constant MAX_PATH_LENGTH = 6; // Supports up to 5-way swaps (6 tokens = 5 hops)
     
     // Risk management
     mapping(address => bool) public blacklistedPools;

@@ -95,20 +95,33 @@ library PoolLib {
         uint256 lastTimestamp,
         uint256 currentTimestamp
     ) internal pure returns (uint256) {
-        if (lastTimestamp >= currentTimestamp) return pool.volatility;
-        
+        // For pools with no volatility history (pool.volatility == 0), return minimal volatility
+        // This includes: fresh pools, same-block multi-hop swaps, and newly initialized pools
+        if (pool.volatility == 0 || lastTimestamp == 0) {
+            return PRECISION / 100; // 1% minimal volatility
+        }
+
+        // If no time has passed, return existing volatility
+        if (lastTimestamp >= currentTimestamp) {
+            return pool.volatility;
+        }
+
         uint256 timeDelta = currentTimestamp - lastTimestamp;
-        if (timeDelta == 0) return pool.volatility;
-        
-        // Calculate price change
+        if (timeDelta == 0) {
+            return pool.volatility;
+        }
+
+        // Calculate current price
         uint256 currentPrice = (pool.reserveOut * PRECISION) / pool.reserveIn;
-        uint256 priceChange = pool.volatility > currentPrice ? 
-            pool.volatility - currentPrice : 
+
+        // Calculate price change
+        uint256 priceChange = pool.volatility > currentPrice ?
+            pool.volatility - currentPrice :
             currentPrice - pool.volatility;
-            
+
         // Exponential decay factor based on time delta
         uint256 decay = MathLib.exp2(PRECISION * timeDelta / 1 days);
-        
+
         return (pool.volatility * decay + priceChange * (PRECISION - decay)) / PRECISION;
     }
 

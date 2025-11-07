@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-    <title>Code coverage report for interfaces/ISwapInterfaces.sol</title>
+    <title>Code coverage report for mocks/MathLibTest.sol</title>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="../prettify.css" />
     <link rel="stylesheet" href="../base.css" />
@@ -16,13 +16,13 @@
 <div class='wrapper'>
   <div class='pad1'>
     <h1>
-      <a href="../index.html">all files</a> / <a href="index.html">interfaces/</a> ISwapInterfaces.sol
+      <a href="../index.html">all files</a> / <a href="index.html">mocks/</a> MathLibTest.sol
     </h1>
     <div class='clearfix'>
       <div class='fl pad1y space-right2'>
         <span class="strong">100% </span>
         <span class="quiet">Statements</span>
-        <span class='fraction'>0/0</span>
+        <span class='fraction'>6/6</span>
       </div>
       <div class='fl pad1y space-right2'>
         <span class="strong">100% </span>
@@ -32,12 +32,12 @@
       <div class='fl pad1y space-right2'>
         <span class="strong">100% </span>
         <span class="quiet">Functions</span>
-        <span class='fraction'>0/0</span>
+        <span class='fraction'>6/6</span>
       </div>
       <div class='fl pad1y space-right2'>
         <span class="strong">100% </span>
         <span class="quiet">Lines</span>
-        <span class='fraction'>0/0</span>
+        <span class='fraction'>6/6</span>
       </div>
     </div>
   </div>
@@ -62,7 +62,26 @@
 17
 18
 19
-20</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -73,34 +92,72 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">13×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">10×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">8×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">12×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// SPDX-License-Identifier: UNLICENSED
 pragma solidity &gt;=0.8.10;
 &nbsp;
-interface IBEP20 {
-    function balanceOf(address owner) external view returns (uint256);
-    function approve(address spender, uint256 value) external returns (bool);
-    function transfer(address to, uint256 value) external returns (bool);
-    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
-}
+import "../libs/MathLib.sol";
 &nbsp;
-interface IGenericPair {
-    function token0() external view returns (address);
-    function token1() external view returns (address);
-    function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
-    function swap(uint256 amount0Out, uint256 amount1Out, address to, bytes calldata data) external;
-}
+/**
+ * @title MathLibTest
+ * @dev Test wrapper contract to expose MathLib functions for testing
+ */
+contract MathLibTest {
+    function testSqrt(uint256 x) external pure returns (uint256) {
+        return MathLib.sqrt(x);
+    }
 &nbsp;
-interface IFactory {
-    function getPair(address tokenA, address tokenB) external view returns (address pair);
-}</pre></td></tr>
+    function testCbrt(uint256 x) external pure returns (uint256) {
+        return MathLib.cbrt(x);
+    }
+&nbsp;
+    function testGeometricMean(uint256 a, uint256 b) external pure returns (uint256) {
+        return MathLib.geometricMean(a, b);
+    }
+&nbsp;
+    function testLog2(uint256 x) external pure returns (uint256) {
+        return MathLib.log2(x);
+    }
+&nbsp;
+    function testExp2(uint256 x) external pure returns (uint256) {
+        return MathLib.exp2(x);
+    }
+&nbsp;
+    function testCalculateOptimalAmount(
+        uint256 amount,
+        uint256 pathLength,
+        uint256 position
+    ) external pure returns (uint256) {
+        return MathLib.calculateOptimalAmount(amount, pathLength, position);
+    }
+}
+&nbsp;</pre></td></tr>
 </table></pre>
 <div class='push'></div><!-- for sticky footer -->
 </div><!-- /wrapper -->

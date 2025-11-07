@@ -274,33 +274,30 @@ contract BofhContractV2 is BofhContractBase {
         // Validate pool state
         require(PoolLib.validateSwap(pool, params), "Invalid swap parameters");
 
-        // Calculate optimal amounts
-        (uint256 optimalAmount, uint256 expectedOutput) =
-            PoolLib.calculateOptimalSwapAmount(pool, params);
-
-        // Update state with optimal values
-        state.currentAmount = optimalAmount;
-        state.historicalAmounts[stepIndex] = expectedOutput;
+        // Calculate expected output using constant product formula (x * y = k)
+        // amountOut = (amountIn * reserveOut * 997) / (reserveIn * 1000 + amountIn * 997)
+        state.historicalAmounts[stepIndex] = (state.currentAmount * 997 * pool.reserveOut) / (pool.reserveIn * 1000 + state.currentAmount * 997);
         state.cumulativeImpact += pool.priceImpact;
 
-        // Approve the pair contract to spend our tokens
+        // Transfer tokens to the pair contract (Uniswap V2 pattern)
         require(
-            IBEP20(tokenIn).approve(pairAddress, optimalAmount),
-            "Approve failed"
+            IBEP20(tokenIn).transfer(pairAddress, state.currentAmount),
+            "Transfer to pair failed"
         );
 
-        uint256 balanceBefore = IBEP20(tokenOut).balanceOf(address(this));
+        {
+            uint256 balanceBefore = IBEP20(tokenOut).balanceOf(address(this));
 
-        // Execute swap on the pair contract
-        IGenericPair(pairAddress).swap(
-            pool.sellingToken0 ? 0 : expectedOutput,
-            pool.sellingToken0 ? expectedOutput : 0,
-            address(this),
-            new bytes(0)
-        );
+            // Execute swap on the pair contract
+            IGenericPair(pairAddress).swap(
+                pool.sellingToken0 ? 0 : state.historicalAmounts[stepIndex],
+                pool.sellingToken0 ? state.historicalAmounts[stepIndex] : 0,
+                address(this),
+                new bytes(0)
+            );
 
-        uint256 balanceAfter = IBEP20(tokenOut).balanceOf(address(this));
-        state.currentAmount = balanceAfter - balanceBefore;
+            state.currentAmount = IBEP20(tokenOut).balanceOf(address(this)) - balanceBefore;
+        }
         state.currentToken = tokenOut;
 
         return state;
