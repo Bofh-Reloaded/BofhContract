@@ -4,46 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-BofhContract V2 is an advanced smart contract system for executing optimized multi-path token swaps on EVM-compatible blockchains (primarily BSC testnet). It implements sophisticated mathematical algorithms using the golden ratio (φ ≈ 0.618034) for 4-way and 5-way swap path optimization, with robust security features including MEV protection, circuit breakers, and comprehensive access control.
-
-## Development Commands
-
-### Solidity Contract Development
-
-```bash
-# Compile contracts
-truffle compile --network bscTestnet
-# Or simply:
-npm run compile
-
-# Run tests
-truffle test
-# Or using builder:
-npm test
-
-# Generate coverage report
-npm run coverage
-
-# Deploy to BSC testnet
-npm run migrate
-
-# Verify deployed contract on BSCScan
-npm run verify
-# Note: Replace {your contract address} in package.json script before running
-```
-
-### Python CLI Tool
-
-```bash
-# Install Python package
-pip install -e .
-
-# Run CLI interface
-python -m bofh.contract
-
-# Clean build artifacts
-python setup.py clean
-```
+**BofhContract V2** is an advanced smart contract system for executing optimized multi-path token swaps on EVM-compatible blockchains (primarily BSC testnet). It implements sophisticated mathematical algorithms using the golden ratio (φ ≈ 0.618034) for 4-way and 5-way swap path optimization, with robust security features including MEV protection, circuit breakers, and comprehensive access control.
 
 ## Architecture
 
@@ -78,14 +39,48 @@ Located in `bofh/contract/`:
 - `__main__.py` - CLI interface for contract interaction, method selector enumeration
 - `__init__.py` - Contract interface utilities
 
+## Development Commands
+
+### Solidity Contract Development
+
+```bash
+# Compile contracts
+npx hardhat compile
+
+# Run tests
+npx hardhat test
+
+# Generate coverage report
+npx hardhat coverage
+
+# Deploy to BSC testnet
+npm run migrate
+
+# Verify deployed contract on BSCScan
+npm run verify
+```
+
+### Python CLI Tool
+
+```bash
+# Install Python package
+pip install -e .
+
+# Run CLI interface
+python -m bofh.contract
+
+# Clean build artifacts
+python setup.py clean
+```
+
 ## Important Development Context
 
 ### Solidity Version & Compiler Settings
 
 - Primary version: `0.8.10+` (for main contracts in `contracts/main/` and `contracts/libs/`)
 - Legacy version: `0.6.12` (Truffle config for compatibility with some dependencies)
-- Optimizer: **Disabled** in truffle-config.js
-- EVM version: `byzantium`
+- Optimizer: **Enabled** in hardhat.config.js (200 runs)
+- EVM version: `london`
 
 ### Network Configuration
 
@@ -123,21 +118,113 @@ The contract uses a golden ratio-based optimization strategy:
 1. **Reentrancy Protection**: Via `SecurityLib.enterProtectedSection`/`exitProtectedSection`
 2. **Access Control**: Owner-only functions with `onlyOwner` modifier
 3. **Circuit Breakers**: Pause functionality via `whenNotPaused` modifier
-4. **MEV Protection**: Deadline checks and sandwich attack mitigation
+4. **MEV Protection**: Deadline checks and sandwich attack mitigation with flash loan detection
 5. **Blacklist System**: Pool-level blacklisting capability
+6. **Input Validation**: Comprehensive validation with custom errors
+7. **Rate Limiting**: Configurable max transactions per block and minimum delay
 
 ### Testing Architecture
 
 Tests use:
-- Truffle framework with OpenZeppelin test helpers
-- Mock contracts (MockToken, MockPair, MockFactory)
-- Chai assertions with BN (BigNumber) support
-- Test file: `test/BofhContractV2.test.js`
+- Hardhat framework with ethers.js
+- Chai assertions
+- Test fixtures via `loadFixture()` for efficiency
+- Time manipulation via `@nomicfoundation/hardhat-toolbox/network-helpers`
+- Test file: `test/BofhContractV2.test.js` (44 tests, 100% passing)
+- Current coverage: 22.19% overall, 64.29% for BofhContractBase
 
 Test setup creates:
 - Multiple mock tokens (BASE, TKNA, TKNB, TKNC)
 - Mock factory for pair creation
 - Pre-funded liquidity pools for swap testing
+
+## Enhanced Development Workflow
+
+### Code Standards & Quality Gates
+
+#### Definition of Done (DoD)
+
+- **Tests**:
+  - Unit tests with ≥90% coverage for contracts
+  - 100% pass rate for all test suites
+  - Test pyramid: 70% unit, 25% integration, 5% e2e
+- **Linting**:
+  - Solidity: Pass `solhint` checks
+  - JavaScript/TypeScript: Pass project linter
+- **Security**:
+  - Pass security scanning (Slither when available)
+  - No high/critical vulnerabilities
+  - No secrets in code
+- **CI**: Green pipeline on all tests
+- **Documentation**:
+  - NatSpec comments on all public/external functions
+  - Update README if user-facing changes
+- **Commits**: Use Conventional Commits format
+  - `feat:` - New features
+  - `fix:` - Bug fixes
+  - `docs:` - Documentation only
+  - `test:` - Adding/updating tests
+  - `refactor:` - Code refactoring
+  - `chore:` - Maintenance tasks
+
+#### File Size Limits
+
+- **Soft Limit**: 300 lines per file
+- **Hard Limit**: 500 lines per file
+- **Refactoring Rule**: If a file exceeds hardLimit by >20% after modification, immediately:
+  1. Pause current work
+  2. Create refactoring sub-task to split the file
+  3. Complete and commit the refactor
+  4. Resume original task
+
+### Test-Driven Development (TDD)
+
+Follow RED→GREEN→REFACTOR cycle:
+
+1. **RED**: Write failing test first
+2. **GREEN**: Implement minimal code to pass
+3. **REFACTOR**: Improve design while keeping tests green
+
+Example commit sequence:
+```
+test(swap): add validation for zero amounts (RED)
+feat(swap): implement zero amount checks (GREEN)
+refactor(swap): extract validation logic (REFACTOR)
+```
+
+### Testing Standards
+
+#### Coverage Gates (Pipeline must fail if under threshold)
+- Lines: 90%
+- Branches: 80%
+- Functions: 90%
+- Statements: 90%
+
+#### Test Types
+1. **Unit Tests** (70% of tests)
+   - Individual function testing
+   - Library function testing
+   - Modifier behavior testing
+   - File naming: `*.test.js` or `*.spec.js`
+
+2. **Integration Tests** (25% of tests)
+   - Multi-contract interactions
+   - End-to-end swap scenarios
+   - Risk management integration
+   - File naming: `*.int.js`
+
+3. **Security Tests** (included in unit/integration)
+   - Reentrancy attempts
+   - Access control bypasses
+   - MEV attack scenarios
+   - Input validation bypasses
+
+#### Test Principles
+- **AAA Pattern**: Arrange-Act-Assert
+- **One Assertion**: One logical assertion per test case
+- **Deterministic**: No real network/time dependencies
+- **Fast**: Unit tests <100ms, Integration tests <1000ms
+- **Fixtures**: Use factory functions over static fixtures
 
 ## Important Implementation Notes
 
@@ -151,15 +238,19 @@ Test setup creates:
 
 ### Gas Optimization Patterns
 
-- Use `unchecked` blocks for iterator increments in loops (contracts/main/BofhContractV2.sol:80-83)
+- Use `unchecked` blocks for iterator increments in loops
 - Track gas usage per swap step: `uint256 gasStart = gasleft()`
 - Libraries (MathLib, PoolLib, SecurityLib) are used for code reuse and gas efficiency
+- Minimize storage reads/writes
+- Use `calldata` for external function parameters when possible
 
 ### Custom Errors
 
 The contract uses custom errors (Solidity 0.8+) for gas efficiency:
 - `InvalidPath()`, `InsufficientOutput()`, `ExcessiveSlippage()`
 - `PathTooLong()`, `DeadlineExpired()`, `InsufficientLiquidity()`
+- `InvalidAddress()`, `InvalidAmount()`, `InvalidArrayLength()`, `InvalidFee()`
+- `FlashLoanDetected()`, `RateLimitExceeded()`
 
 ### Events
 
@@ -167,6 +258,7 @@ Key events to monitor:
 - `SwapExecuted(initiator, pathLength, inputAmount, outputAmount, priceImpact)`
 - `PoolBlacklisted(pool, blacklisted)`
 - `RiskParamsUpdated(maxVolume, minLiquidity, maxImpact, sandwichProtection)`
+- `MEVProtectionUpdated(enabled, maxTxPerBlock, minTxDelay)`
 
 ## Documentation
 
@@ -177,11 +269,179 @@ Comprehensive documentation in `docs/`:
 - `SECURITY.md` - Security analysis and threat mitigation
 - `TESTING.md` - Testing framework and methodologies
 
+Sprint documentation:
+- `SPRINT2_COMPLETE.md` - Sprint 2 completion summary
+- `SPRINT2_PROGRESS.md` - Sprint 2 progress tracking
+- `SPRINT2_TASK_PLAN.md` - Sprint 2 task planning
+
 Refer to these docs when implementing new features or debugging complex swap logic.
 
 ## Configuration Files
 
-- `truffle-config.js` - Truffle configuration with BSC testnet setup
+- `hardhat.config.js` - Hardhat configuration with BSC testnet setup
 - `env.json` - Contains mnemonic and BSCSCANAPIKEY (gitignored, use placeholder values)
 - `package.json` - Node dependencies and npm scripts
 - `setup.py` - Python package configuration for CLI tool
+
+## Branching & Release Strategy
+
+### Branch Naming Convention
+- **Feature branches**: `feat/<description>` (e.g., `feat/mev-protection`)
+- **Bug fixes**: `fix/<description>` (e.g., `fix/deadline-validation`)
+- **Refactoring**: `refactor/<description>` (e.g., `refactor/split-swap-logic`)
+- **Documentation**: `docs/<description>` (e.g., `docs/update-readme`)
+- **Chores**: `chore/<description>` (e.g., `chore/update-deps`)
+
+### Main Branch
+- **Protected**: `main` branch requires PR reviews
+- **Stable**: All tests must pass before merge
+- **Tagged**: Release versions tagged as `vX.Y.Z`
+
+### Release Process
+1. Create feature branch from `main`
+2. Implement changes with TDD
+3. Ensure all tests pass and coverage meets requirements
+4. Create PR with comprehensive description
+5. Code review and approval
+6. Merge to `main`
+7. Tag release with semantic version
+8. Deploy to testnet/mainnet
+
+### Versioning
+Semantic versioning based on Conventional Commits:
+- `feat:` → minor bump (v1.1.0 → v1.2.0)
+- `fix:` → patch bump (v1.1.0 → v1.1.1)
+- `BREAKING CHANGE:` → major bump (v1.1.0 → v2.0.0)
+
+## Security Best Practices
+
+### Secret Management
+- **Never commit secrets** to repository
+- Use `env.json` for local development (gitignored)
+- Use environment variables in CI/CD
+- For production: Use secure vault systems
+
+### Code Security
+- Run security linters when available (Slither, Mythril)
+- Follow Solidity security patterns
+- Implement comprehensive input validation
+- Use reentrancy guards on all external calls
+- Implement proper access control
+- Add circuit breakers for emergency stops
+
+### Audit Trail
+- All privileged operations emit events
+- Document security considerations in NatSpec
+- Maintain comprehensive test coverage
+- Regular security audits before major releases
+
+## Development Workflow Protocols
+
+The `dev-prompts/` directory contains standardized workflow protocols:
+
+### Core Protocols
+- **DEV-PROTO.yaml**: TDD workflow and code standards
+- **QA.yaml**: Testing and quality assurance workflow
+- **SECURITY-PROTO.yaml**: Security review and scanning
+- **RELEASE-PROTO.yaml**: Release preparation and deployment
+- **REFACTOR-PROTO.yaml**: Code refactoring guidelines
+- **BUG-PROTO.yaml**: Bug triage and resolution workflow
+
+### When to Use Each Protocol
+- **New feature**: DEV-PROTO.yaml → QA.yaml → RELEASE-PROTO.yaml
+- **Bug fix**: BUG-PROTO.yaml → QA.yaml
+- **Refactoring**: REFACTOR-PROTO.yaml (no behavior change)
+- **Security review**: SECURITY-PROTO.yaml
+- **Release**: RELEASE-PROTO.yaml
+
+These protocols provide structured checklists and ensure consistency across development activities.
+
+## Common Development Scenarios
+
+### Adding a New Feature
+1. Create feature branch: `git checkout -b feat/new-feature`
+2. Follow TDD cycle (RED-GREEN-REFACTOR)
+3. Write tests first, then implementation
+4. Ensure coverage meets 90%+ threshold
+5. Run full test suite: `npx hardhat test`
+6. Generate coverage: `npx hardhat coverage`
+7. Commit with conventional commit message
+8. Create PR with comprehensive description
+
+### Fixing a Bug
+1. Create bug fix branch: `git checkout -b fix/bug-description`
+2. Write failing test that reproduces the bug (RED)
+3. Fix the bug (GREEN)
+4. Refactor if needed (REFACTOR)
+5. Verify all tests pass
+6. Commit and create PR
+
+### Refactoring Code
+1. Ensure all existing tests pass before starting
+2. Create refactor branch: `git checkout -b refactor/description`
+3. Make incremental changes
+4. Keep all tests green throughout
+5. Commit frequently with clear messages
+6. Verify no behavior changes
+
+### Running Security Scans
+```bash
+# When Slither is available
+slither contracts/
+
+# Run tests with gas reporting
+REPORT_GAS=true npx hardhat test
+
+# Generate coverage report
+npx hardhat coverage
+```
+
+## CI/CD Integration
+
+GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every push/PR:
+- Contract compilation check
+- Full test suite execution
+- Coverage report generation
+- Security scanning (when tools available)
+- Automated deployment to testnet (manual trigger)
+
+## Project Roadmap & Sprint Planning
+
+### Current Status (Post Sprint 2)
+- ✅ Hardhat migration complete
+- ✅ Comprehensive test suite (44 tests, 100% passing)
+- ✅ Security enhancements (MEV, validation, access control)
+- ✅ CI/CD pipeline functional
+- 🟡 Coverage at 22.19% (target: 90%+)
+
+### Upcoming Priorities
+1. **Increase Test Coverage**: Add integration tests, library tests
+2. **Security Audit**: Professional audit before mainnet
+3. **Gas Optimization**: Target 30%+ reduction
+4. **Documentation**: Comprehensive code documentation
+5. **Performance Monitoring**: Metrics and monitoring setup
+
+### Long-term Goals
+- Mainnet deployment
+- Multi-DEX support
+- Advanced optimization algorithms
+- Governance system
+- Community engagement
+
+## Getting Help
+
+- **Documentation**: Check `docs/` directory for detailed guides
+- **Issues**: Review open GitHub issues for known problems
+- **Testing**: Run `npx hardhat test` to verify setup
+- **Coverage**: Run `npx hardhat coverage` to check test coverage
+- **Community**: Engage with project maintainers via GitHub
+
+---
+
+**Last Updated**: 2025-11-07 (Sprint 2 Complete)
+**Project Version**: v1.2.0
+**Coverage**: 22.19% (44/44 tests passing)
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
