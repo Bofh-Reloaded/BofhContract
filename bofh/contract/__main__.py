@@ -1,19 +1,39 @@
 #!/usr/bin/env python3
 """
 CLI interface for BofhContract interface operations.
+
+Usage:
+    python -m bofh.contract                  # Enumerate method selectors
+    python -m bofh.contract --help           # Show help message
 """
 
 from os.path import join, dirname, realpath
 from re import split, search
 import logging
+import sys
 
-from bofh.utils.solidity import add_solidity_search_path, get_abi
-from bofh.utils.web3 import Web3Connector, JSONRPCConnector
+try:
+    from bofh.utils.solidity import add_solidity_search_path, get_abi
+    from bofh.utils.web3 import Web3Connector, JSONRPCConnector
+except ImportError as e:
+    print(f"Error: Missing required dependencies: {e}", file=sys.stderr)
+    print("\nPlease install the package:", file=sys.stderr)
+    print("  pip install -e .", file=sys.stderr)
+    sys.exit(1)
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 
 # Configure solidity search path
-add_solidity_search_path(join(dirname(dirname(dirname(realpath(__file__)))), "contracts"))
+try:
+    contracts_path = join(dirname(dirname(dirname(realpath(__file__)))), "contracts")
+    add_solidity_search_path(contracts_path)
+except FileNotFoundError as e:
+    logging.error(f"Failed to configure search path: {e}")
+    logging.error("Make sure you're running from the project root directory")
+    sys.exit(1)
 
 def _extract_numeric_tail(text: str) -> str:
     """Extract numeric tail from a string using regex split."""
@@ -101,10 +121,36 @@ def main():
     """
     Main function: instantiate the contract interface and obtain contract.
     """
-    iface = BofhContractIface()
-    contract = iface.get_contract()
-    # Additional operations can be performed with contract if needed.
-    return contract
+    # Check for help flag
+    if len(sys.argv) > 1 and sys.argv[1] in ['-h', '--help', 'help']:
+        print(__doc__)
+        print("\nThis tool enumerates method selectors from the BofhContract ABI.")
+        print("\nMake sure to compile contracts first:")
+        print("  npm run compile")
+        print("\nFor full CLI functionality, use the CLI module:")
+        print("  python -m bofh.contract.cli --help")
+        return
+
+    try:
+        logging.info("Initializing BofhContract interface...")
+        iface = BofhContractIface()
+
+        logging.info("Loading contract ABI...")
+        contract = iface.get_contract()
+
+        logging.info("Contract interface loaded successfully")
+        return contract
+
+    except FileNotFoundError as e:
+        logging.error(f"File not found: {e}")
+        logging.error("\nMake sure to compile contracts first:")
+        logging.error("  npm run compile")
+        sys.exit(1)
+
+    except Exception as e:
+        logging.error(f"Unexpected error: {e}")
+        logging.exception("Full traceback:")
+        sys.exit(1)
 
 if __name__ == '__main__':
     main()
