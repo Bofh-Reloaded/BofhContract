@@ -2,6 +2,7 @@
 pragma solidity >=0.8.10;
 
 import "./BofhContractBase.sol";
+import "../interfaces/ISwapInterfaces.sol";
 
 contract BofhContractV2 is BofhContractBase {
     using MathLib for uint256;
@@ -9,6 +10,7 @@ contract BofhContractV2 is BofhContractBase {
 
     // Immutable state
     address private immutable baseToken;
+    address private immutable factory;
 
     // Optimized swap state tracking
     struct SwapState {
@@ -36,9 +38,13 @@ contract BofhContractV2 is BofhContractBase {
     error InvalidFee();
 
     constructor(
-        address baseToken_
+        address baseToken_,
+        address factory_
     ) BofhContractBase(msg.sender, baseToken_) {
+        require(baseToken_ != address(0), "Invalid base token");
+        require(factory_ != address(0), "Invalid factory");
         baseToken = baseToken_;
+        factory = factory_;
     }
 
     /// @dev Internal function to validate swap inputs (Issue #8)
@@ -245,9 +251,12 @@ contract BofhContractV2 is BofhContractBase {
         uint256 stepIndex,
         uint256 pathLength
     ) private returns (SwapState memory) {
-        // Analyze pool state
+        // Get the pair address for these two tokens
+        address pairAddress = _getPair(tokenIn, tokenOut);
+
+        // Analyze pool state using the pair address
         PoolLib.PoolState memory pool = PoolLib.analyzePool(
-            tokenIn, // Using tokenIn as pool address since it's passed directly in path
+            pairAddress,
             tokenIn,
             state.currentAmount,
             block.timestamp
@@ -265,32 +274,30 @@ contract BofhContractV2 is BofhContractBase {
         // Validate pool state
         require(PoolLib.validateSwap(pool, params), "Invalid swap parameters");
 
-        // Calculate optimal amounts
-        (uint256 optimalAmount, uint256 expectedOutput) = 
-            PoolLib.calculateOptimalSwapAmount(pool, params);
-
-        // Update state with optimal values
-        state.currentAmount = optimalAmount;
-        state.historicalAmounts[stepIndex] = expectedOutput;
+        // Calculate expected output using constant product formula (x * y = k)
+        // amountOut = (amountIn * reserveOut * 997) / (reserveIn * 1000 + amountIn * 997)
+        state.historicalAmounts[stepIndex] = (state.currentAmount * 997 * pool.reserveOut) / (pool.reserveIn * 1000 + state.currentAmount * 997);
         state.cumulativeImpact += pool.priceImpact;
 
-        // Execute optimized swap
+        // Transfer tokens to the pair contract (Uniswap V2 pattern)
         require(
-            IBEP20(tokenIn).approve(tokenIn, optimalAmount),
-            "Approve failed"
+            IBEP20(tokenIn).transfer(pairAddress, state.currentAmount),
+            "Transfer to pair failed"
         );
 
-        uint256 balanceBefore = IBEP20(tokenOut).balanceOf(address(this));
-        
-        IGenericPair(tokenIn).swap(
-            pool.sellingToken0 ? 0 : expectedOutput,
-            pool.sellingToken0 ? expectedOutput : 0,
-            address(this),
-            new bytes(0)
-        );
+        {
+            uint256 balanceBefore = IBEP20(tokenOut).balanceOf(address(this));
 
-        uint256 balanceAfter = IBEP20(tokenOut).balanceOf(address(this));
-        state.currentAmount = balanceAfter - balanceBefore;
+            // Execute swap on the pair contract
+            IGenericPair(pairAddress).swap(
+                pool.sellingToken0 ? 0 : state.historicalAmounts[stepIndex],
+                pool.sellingToken0 ? state.historicalAmounts[stepIndex] : 0,
+                address(this),
+                new bytes(0)
+            );
+
+            state.currentAmount = IBEP20(tokenOut).balanceOf(address(this)) - balanceBefore;
+        }
         state.currentToken = tokenOut;
 
         return state;
@@ -331,9 +338,25 @@ contract BofhContractV2 is BofhContractBase {
         return (expectedOutput, priceImpact, optimalityScore);
     }
 
+    /// @notice Get pair address for two tokens from factory
+    /// @dev Helper function to resolve pair address from token addresses
+    /// @param tokenA First token address
+    /// @param tokenB Second token address
+    /// @return pair The pair contract address
+    function _getPair(address tokenA, address tokenB) internal view returns (address pair) {
+        pair = IFactory(factory).getPair(tokenA, tokenB);
+        require(pair != address(0), "Pair does not exist");
+    }
+
     /// @notice Get the base token address used for swaps
     /// @return The address of the base token
     function getBaseToken() external view returns (address) {
         return baseToken;
+    }
+
+    /// @notice Get the factory address
+    /// @return The address of the factory
+    function getFactory() external view returns (address) {
+        return factory;
     }
 }
