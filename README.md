@@ -1,63 +1,95 @@
-# BofhContract V2 🚀
+# BofhContract V2
 
 <div align="center">
 
-### 🏆 Production-Grade DeFi Infrastructure 🏆
+**Advanced Multi-Path Token Swap Optimizer for Binance Smart Chain**
 
-**$1.2B+ Total Volume Processed** | **$420M+ Profits Generated** | **99.92% Success Rate**
+[![Tests](https://img.shields.io/badge/tests-153%20passing-brightgreen)](https://github.com/Bofh-Reloaded/BofhContract)
+[![Coverage](https://img.shields.io/badge/coverage-improving-yellow)](https://github.com/Bofh-Reloaded/BofhContract)
+[![License](https://img.shields.io/badge/license-UNLICENSED-blue)](LICENSE)
+[![Solidity](https://img.shields.io/badge/solidity-0.8.10-363636)](https://docs.soliditylang.org)
+[![Hardhat](https://img.shields.io/badge/built%20with-Hardhat-yellow)](https://hardhat.org)
 
-An advanced smart contract system implementing cutting-edge mathematical algorithms based on the **Golden Ratio (φ ≈ 0.618034)** for optimal multi-path token swaps with institutional-grade security.
+An advanced DeFi smart contract system implementing mathematical optimization algorithms based on the **Golden Ratio (φ ≈ 0.618034)** for optimal multi-path token swaps with comprehensive security features.
 
----
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    PERFORMANCE METRICS                       │
-├─────────────────────────────────────────────────────────────┤
-│  💰 Volume Processed: $1,247,583,000                        │
-│  📈 Total Profit:     $420,345,000                          │
-│  ⚡ Avg Gas Savings:  43% vs traditional methods            │
-│  🛡️  MEV Protection:  99.98% success rate                   │
-│  🎯 Price Impact:     0.15% average (66% better than std)   │
-└─────────────────────────────────────────────────────────────┘
-```
+[Documentation](#documentation) •
+[Quick Start](#quick-start) •
+[Architecture](#architecture) •
+[Security](#security) •
+[Contributing](#contributing)
 
 </div>
 
-## Documentation 📚
+---
+
+## 🎯 Project Status
+
+**Current Version:** v1.5.0 (Beta - Pre-Production)
+
+**Overall Score:** 8.1/10
+
+| Category | Status | Score |
+|----------|--------|-------|
+| Contract Architecture | ✅ Excellent | 9.5/10 |
+| Documentation | ✅ Excellent | 9.0/10 |
+| Security | ✅ Good | 8.0/10 |
+| Code Quality | ✅ Good | 8.5/10 |
+| Test Coverage | ⚠️ Needs Improvement | 6.0/10 |
+| CI/CD | ✅ Good | 8.5/10 |
+
+**Production Readiness:** Strong foundation with targeted improvements needed. See [Project Analysis](docs/PROJECT_ANALYSIS.md) for details.
+
+---
+
+## ✨ Key Features
+
+### Mathematical Sophistication
+- **Golden Ratio Optimization**: φ-based path splitting for 4-way and 5-way swaps
+- **Advanced CPMM Analysis**: Third-order Taylor expansion for price impact modeling
+- **Dynamic Programming**: Bellman equation implementation for optimal routing
+
+### Security Features
+- **Multi-Layer Protection**:
+  - Reentrancy guards (OpenZeppelin standard)
+  - MEV protection (flash loan detection + rate limiting)
+  - Comprehensive input validation
+  - Circuit breakers (emergency pause)
+  - Pool blacklisting capability
+
+### Architecture
+- **Modular Design**: Clean separation of concerns with libraries
+- **Interface Abstractions**: IBofhContract, IBofhContractBase for loose coupling
+- **DEX Adapters**: Support for Uniswap V2, PancakeSwap (extensible)
+- **Upgrade Strategy**: Documented transparent proxy pattern
+
+---
+
+## 📚 Documentation
 
 ### Core Documentation
-- [Architecture Overview](docs/ARCHITECTURE.md) 🏗️
-  - System design and components
-  - Data flow and state management
-  - Upgrade patterns
+- **[Architecture Overview](docs/ARCHITECTURE.md)** - System design and components
+- **[Mathematical Foundations](docs/MATHEMATICAL_FOUNDATIONS.md)** - CPMM theory and optimization
+- **[Swap Algorithms](docs/SWAP_ALGORITHMS.md)** - 4-way and 5-way implementation
+- **[Security Analysis](docs/SECURITY.md)** - MEV protection and threat mitigation
+- **[Testing Framework](docs/TESTING.md)** - Unit tests and integration tests
+- **[Deployment Guide](docs/DEPLOYMENT.md)** - Testnet and mainnet deployment
+- **[API Reference](docs/API_REFERENCE.md)** - Contract interfaces and functions
 
-- [Mathematical Foundations](docs/MATHEMATICAL_FOUNDATIONS.md) 📐
-  - CPMM theory
-  - Path optimization algorithms
-  - Price impact analysis
+### Developer Documentation
+- **[Code Style Guide](docs/STYLE_GUIDE.md)** - Solidity, JavaScript, Python standards
+- **[Interface Specifications](docs/INTERFACES.md)** - IBofhContract, IBofhContractBase
+- **[DEX Adapters](docs/DEX_ADAPTERS.md)** - Adapter pattern implementation
+- **[Upgradeability Strategy](docs/UPGRADEABILITY_STRATEGY.md)** - Proxy patterns
+- **[Monitoring Guide](docs/MONITORING.md)** - Performance monitoring setup
 
-- [Swap Algorithms](docs/SWAP_ALGORITHMS.md) 🔄
-  - 4-way swap implementation
-  - 5-way swap implementation
-  - Performance optimizations
+---
 
-- [Security Analysis](docs/SECURITY.md) 🛡️
-  - MEV protection
-  - Circuit breakers
-  - Access control
-
-- [Testing Framework](docs/TESTING.md) 🧪
-  - Unit tests
-  - Integration tests
-  - Performance benchmarks
-
-## Quick Start 🚀
+## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js >= 14.0.0
-- npm >= 6.0.0
-- Truffle >= 5.0.0
+- **Node.js** >= 16.0.0
+- **npm** >= 8.0.0
+- **Hardhat** (installed via npm)
 
 ### Installation
 
@@ -67,19 +99,20 @@ git clone https://github.com/Bofh-Reloaded/BofhContract.git
 cd BofhContract
 
 # Install dependencies
-npm install --legacy-peer-deps
+npm install
 
 # Configure environment
 cp env.json.example env.json
-# Edit env.json and add your:
-# - BSC testnet mnemonic (12 words)
-# - BSCScan API key (get from https://bscscan.com/myapikey)
+# Edit env.json with your BSC testnet mnemonic and BSCScan API key
 
 # Compile contracts
-npx truffle compile
+npm run compile
 
 # Run tests
 npm test
+
+# Generate coverage report
+npm run coverage
 ```
 
 ### Environment Setup
@@ -93,42 +126,119 @@ Create `env.json` in the project root:
 }
 ```
 
-**⚠️ IMPORTANT**: Never commit `env.json` to version control!
+**⚠️ SECURITY**: Never commit `env.json` to version control! It's already in `.gitignore`.
 
-## 🌟 Why BofhContract V2 is Mathematically & Financially Advanced
+### Running Tests
 
-### 📐 Mathematical Sophistication
+```bash
+# Run all tests (153 tests)
+npm test
 
-BofhContract V2 implements **graduate-level mathematical concepts** that set it apart from traditional DEX solutions:
+# Run with gas reporting
+REPORT_GAS=true npm test
 
-#### 1. **Golden Ratio Optimization Theory** 🏅
+# Run coverage analysis
+npm run coverage
 
-The system uses the golden ratio φ to achieve provably optimal path splitting:
+# Run security scan
+npm run security
+```
+
+### Deployment
+
+```bash
+# Deploy to BSC testnet
+npm run deploy:testnet
+
+# Verify contract on BSCScan
+npm run verify
+```
+
+---
+
+## 🏗️ Architecture
+
+### Contract Structure
+
+```
+BofhContractV2 (main implementation - 404 lines)
+  └── BofhContractBase (security & risk management - 361 lines)
+       ├── SecurityLib (access control, reentrancy - 300 lines)
+       ├── MathLib (sqrt, cbrt, golden ratio - 171 lines)
+       └── PoolLib (liquidity analysis, CPMM - 274 lines)
+```
+
+### Key Components
+
+**Main Contracts:**
+- `BofhContractV2.sol` - Swap execution with golden ratio optimization
+- `BofhContractBase.sol` - Security primitives and risk parameters
+
+**Libraries:**
+- `MathLib.sol` - Mathematical operations (Newton's method, geometric mean)
+- `PoolLib.sol` - CPMM analysis, price impact calculation
+- `SecurityLib.sol` - Reentrancy protection, access control
+
+**Interfaces:**
+- `IBofhContract.sol` - Public API for swap execution
+- `IBofhContractBase.sol` - Base functionality interface
+- `IDEXAdapter.sol` - DEX abstraction layer
+
+**Adapters:**
+- `UniswapV2Adapter.sol` - Uniswap V2 integration (0.3% fee)
+- `PancakeSwapAdapter.sol` - PancakeSwap V2 integration (0.25% fee)
+
+**Total:** 18 Solidity files, ~3,500 lines of contract code
+
+---
+
+## 🔐 Security
+
+### Implemented Security Features
+
+✅ **Reentrancy Protection** - Function-level locks with msg.sig tracking
+✅ **Input Validation** - Comprehensive validation in all external functions
+✅ **MEV Protection** - Flash loan detection and rate limiting
+✅ **Access Control** - Owner and operator roles
+✅ **Circuit Breakers** - Emergency pause functionality
+✅ **Pool Blacklisting** - Manual pool exclusion capability
+
+### Security Audits
+
+- **Automated Scanning**: Slither integration in CI/CD
+- **External Audit**: Pending (recommended before production)
+- **Bug Bounty**: Not yet established
+
+### Known Limitations
+
+⚠️ **Stack Depth Issue**: `executeMultiSwap` lacks `antiMEV` modifier due to stack depth
+⚠️ **No Oracle Integration**: Relies on pool reserves only
+⚠️ **Centralization**: Single owner has significant control (mitigate with multisig)
+
+See [Security Analysis](docs/SECURITY.md) for complete details.
+
+---
+
+## 🧮 Mathematical Foundations
+
+### Golden Ratio Optimization
+
+The system uses the golden ratio φ for provably optimal path splitting:
 
 ```
 φ = (1 + √5) / 2 ≈ 1.618034
 φ⁻¹ ≈ 0.618034
 
-For 4-way swaps: [φ⁻¹, φ⁻², φ⁻³, 1-Σφ⁻ⁱ]
-              ≈ [0.618, 0.382, 0.236, 0.764]
+For 4-way swaps: [φ⁻¹, φ⁻², φ⁻³, remainder]
+              ≈ [61.8%, 38.2%, 23.6%, remaining]
 ```
 
-**Proof of Optimality**: Using Lagrange multipliers, we solve:
-```
-min f(x₁,...,xₙ) = Σᵢ(1/xᵢ)
-subject to: Πᵢ xᵢ = A (total amount)
+**Proof of Optimality**: Using Lagrange multipliers to minimize total price impact across paths.
 
-∂L/∂xᵢ = -1/xᵢ² + λΠⱼ≠ᵢ xⱼ = 0
-⟹ xᵢ₊₁/xᵢ = φ⁻¹
-```
+### CPMM Analysis
 
-This mathematical approach yields **52% better price impact** vs. naive splitting methods.
+Third-order Taylor expansion for price impact:
 
-#### 2. **Advanced CPMM (Constant Product Market Maker) Analysis** 📊
-
-Traditional AMM equation: `x · y = k`
-
-Our third-order Taylor expansion for price impact:
 ```
 ΔP/P = -λ(ΔR/R) + (λ²/2)(ΔR/R)² - (λ³/6)(ΔR/R)³
 
@@ -138,346 +248,190 @@ where:
   ΔP/P = relative price change
 ```
 
-This captures **non-linear effects** ignored by competitors, resulting in:
-- **66% reduction** in unexpected slippage
-- **43% lower gas costs** through optimized calculations
-- **99.92% execution success rate**
+See [Mathematical Foundations](docs/MATHEMATICAL_FOUNDATIONS.md) for complete derivations.
 
-#### 3. **Dynamic Programming Path Optimization** 🛣️
+---
 
-Bellman equation implementation for optimal routing:
-```
-V(s) = max_{a∈A} {R(s,a) + γV(s')}
+## 🧪 Testing
 
-where:
-  V(s) = value function at state s
-  R(s,a) = immediate reward for action a
-  γ = discount factor
-  s' = resulting state
-```
+### Test Suite
 
-**Time Complexity**: O(n) vs O(n²) for brute force
-**Space Complexity**: O(1) with in-place optimization
+**7 test files, 153 tests, 100% passing**
 
-### 💼 Financial Engineering Excellence
-
-#### Real-World Performance (6 Months Production)
-
-```
-╔══════════════════════════════════════════════════════════════╗
-║                   FINANCIAL PERFORMANCE                       ║
-╠══════════════════════════════════════════════════════════════╣
-║                                                               ║
-║   Total Volume Processed:     $1,247,583,000                ║
-║   Total Profits Generated:    $  420,345,000                ║
-║   Average Profit per Trade:   $      3,375                  ║
-║   Total Transactions:              124,532                   ║
-║                                                               ║
-║   ROI (Return on Investment):       51.2%                    ║
-║   Sharpe Ratio:                      3.84                    ║
-║   Max Drawdown:                     -2.3%                    ║
-║                                                               ║
-╚══════════════════════════════════════════════════════════════╝
+```bash
+test/
+├── BofhContractV2.test.js       # Main contract tests (47 tests)
+├── Libraries.test.js            # Library function tests (42 tests)
+├── SwapExecution.test.js        # Swap logic tests (25 tests)
+├── MEVProtection.test.js        # MEV protection tests (12 tests)
+├── MultiSwap.test.js            # Multi-path tests (15 tests)
+├── ViewFunctions.test.js        # View function tests (10 tests)
+└── test_bofh_contract.py        # Python CLI tests (2 tests)
 ```
 
-#### Volume Distribution by Month 📈
+### Test Coverage
 
-```
-Month 1:  ████████████████░░░░░░  $187.5M  (15.0%)
-Month 2:  ████████████████████░░  $212.3M  (17.0%)
-Month 3:  ████████████████████░░  $198.7M  (15.9%)
-Month 4:  ██████████████████████  $234.1M  (18.8%)
-Month 5:  █████████████████████░  $221.4M  (17.7%)
-Month 6:  ████████████████████░░  $193.6M  (15.5%)
-         └─────────────────────────────────────────┘
-           0M    50M   100M  150M  200M  250M
-```
+Current coverage framework in place. See [Testing Framework](docs/TESTING.md) for details.
 
-#### Profit Efficiency vs Competitors 💎
+**Coverage Goals:**
+- ✅ Unit tests for all libraries
+- ✅ Integration tests for swap execution
+- ⚠️ Fuzzing tests needed
+- ⚠️ Mainnet fork tests needed
 
-```
-Traditional Methods:  ████████░░░░░░░░░░░░  $168M  (40.0% efficiency)
-Uniswap V2:          █████████████░░░░░░░  $273M  (65.0% efficiency)
-BofhContract V2:     ████████████████████  $420M  (100% efficiency)
-                     └────────────────────────────────────┘
-                      0M   100M  200M  300M  400M  500M
-```
+---
 
-### ⚡ Key Technical Advantages
+## 📊 Performance
 
-| Feature | Traditional | Uniswap V2 | BofhContract V2 | Improvement |
-|---------|------------|------------|-----------------|-------------|
-| 💨 **Gas Cost** | 350,000 | 280,000 | **245,123** | **🔥 30% savings** |
-| 🎯 **Price Impact** | 0.45% | 0.25% | **0.15%** | **📉 40% reduction** |
-| 🛡️ **MEV Protection** | ❌ None | ⚠️ Basic | **✅ Advanced** | **99.98% success** |
-| 🧮 **Path Optimization** | 📝 Manual | ⚙️ Basic | **🤖 Dynamic** | **52% better** |
-| ✅ **Success Rate** | 98.50% | 99.80% | **99.92%** | **🎯 +0.12%** |
-| 🔬 **Mathematical Model** | Linear | Quadratic | **Cubic + φ-based** | **Graduate level** |
+### Gas Optimization
 
-### 🔐 Security Features
+**Phase 3 Optimization Results:**
+- Total gas saved: 1,399 gas (0.64% improvement)
+- Optimizations: Inline CPMM calculation, reduced external calls, unchecked math
 
-#### Multi-Layer Protection System
+**Gas Costs:**
+- Simple 2-way swap: ~218,000 gas
+- Complex 5-way swap: ~350,000 gas
 
-```
-┌─────────────────────────────────────────────────────────┐
-│  Layer 1: MEV Protection                                │
-│  ├─ Sandwich Attack Detection    ✓ 99.98% effective    │
-│  ├─ Front-running Prevention     ✓ TWAP validation     │
-│  └─ Price Manipulation Shields   ✓ Statistical analysis│
-├─────────────────────────────────────────────────────────┤
-│  Layer 2: Circuit Breakers                              │
-│  ├─ Price Impact Limits          ✓ Max 10% impact      │
-│  ├─ Volume Controls               ✓ Dynamic throttling  │
-│  └─ Volatility Gates             ✓ Real-time monitoring│
-├─────────────────────────────────────────────────────────┤
-│  Layer 3: Access Control                                │
-│  ├─ Reentrancy Guards            ✓ OpenZeppelin std    │
-│  ├─ Owner Functions              ✓ Multi-sig ready     │
-│  └─ Emergency Pause              ✓ Circuit breaker     │
-└─────────────────────────────────────────────────────────┘
-```
+See [Gas Optimization Results](docs/GAS_OPTIMIZATION_PHASE3_RESULTS.md) for benchmarks.
 
-### 📊 Performance Under Stress
+---
 
-#### Gas Consumption by Trade Size 💨
+## 🛠️ Development
 
-```
-Trade Size    │ Gas Used │ Gas/$ Efficiency │ Graph
-──────────────┼──────────┼──────────────────┼─────────────────────
-$0-1K         │ 187,450  │  187.45 gas/$   │ ████░░░░░░░░░░░░
-$1K-10K       │ 231,890  │   23.19 gas/$   │ █████░░░░░░░░░░░
-$10K-100K     │ 245,123  │    2.45 gas/$   │ ██████░░░░░░░░░░
-$100K-1M      │ 267,345  │    0.27 gas/$   │ ███████░░░░░░░░░
-$1M+          │ 298,456  │    0.03 gas/$   │ ████████░░░░░░░░
+### Available Scripts
+
+```bash
+# Compilation
+npm run compile              # Compile contracts
+npm run compile:truffle      # Compile with Truffle (legacy)
+
+# Testing
+npm test                     # Run all tests
+npm run coverage             # Generate coverage report
+npm run test:truffle         # Run Truffle tests (legacy)
+
+# Linting & Formatting
+npm run lint                 # Run all linters
+npm run lint:sol             # Lint Solidity files
+npm run lint:js              # Lint JavaScript files
+npm run format               # Format all files
+npm run format:check         # Check formatting
+
+# Security
+npm run security             # Run security scan
+npm run security:install     # Install Slither
+
+# Deployment
+npm run deploy:testnet       # Deploy to BSC testnet
+npm run verify               # Verify on BSCScan
 ```
 
-**Key Insight**: Larger trades achieve **99.98% better gas efficiency** per dollar!
+### CI/CD Pipeline
 
-#### Success Rate by Network Condition 🎯
+GitHub Actions workflows:
+- **CI**: Lint, compile, test, coverage on all branches
+- **Security**: Slither scan, npm audit (scheduled weekly)
+- **Gas Report**: Automated gas usage reporting on PRs
 
-```
-Condition         │ Success Rate │ Avg Latency │ Visual
-──────────────────┼──────────────┼─────────────┼──────────────────
-Normal            │   99.92%     │   12.4s     │ ████████████████████
-High Congestion   │   99.85%     │   15.2s     │ ███████████████████░
-Extreme Volatility│   99.80%     │   16.8s     │ ███████████████████░
-Peak Usage        │   99.75%     │   18.5s     │ ██████████████████░░
-```
+---
 
-**Maintains >99.7% success rate even under extreme conditions!**
+## 📦 Dependencies
 
-## 🎓 Mathematical Depth: Why This is Graduate-Level
+### Production Dependencies
+- `@openzeppelin/contracts@4.9.6` - Security-audited contract libraries
 
-### Academic Foundations
+### Development Dependencies
+- `hardhat@2.27.0` - Ethereum development environment
+- `ethers@6.15.0` - Ethereum library
+- `@nomicfoundation/hardhat-toolbox@3.0.0` - Complete Hardhat toolkit
+- `solidity-coverage@0.8.5` - Coverage analysis
+- `hardhat-gas-reporter@2.3.0` - Gas usage reporting
 
-This project synthesizes concepts from multiple advanced fields:
+**Note:** Some legacy Truffle dependencies remain from migration. Cleanup in progress.
 
-#### 1. **Optimization Theory** 📚
-- **Lagrange Multipliers**: Used to solve constrained optimization problems
-- **Convex Optimization**: Guarantees global optimality of solutions
-- **Dynamic Programming**: Bellman optimality principle for path selection
+---
 
-#### 2. **Numerical Analysis** 🔢
-- **Newton-Raphson Method**: O(log n) convergence for square/cube roots
-- **Taylor Series Expansion**: 3rd order approximation for price impact
-- **Floating Point Arithmetic**: Custom fixed-point implementation (1e6 precision)
+## 🗺️ Roadmap
 
-#### 3. **Financial Mathematics** 💹
-- **Sharpe Ratio**: 3.84 (excellent risk-adjusted returns)
-- **Volatility Modeling**: Exponential Moving Average (EMA) for σ estimation
-- **Slippage Analysis**: Non-linear impact modeling
+### Immediate (Next 2 Weeks)
+- [ ] Fix antiMEV stack depth issue in `executeMultiSwap`
+- [ ] Complete Hardhat deployment scripts
+- [ ] Remove legacy Truffle dependencies
+- [ ] Add emergency token recovery function
 
-#### 4. **Game Theory** ♟️
-- **MEV (Maximal Extractable Value)**: Defense against adversarial actors
-- **Nash Equilibrium**: Price discovery mechanisms
-- **Mechanism Design**: Incentive-compatible protocols
+### Short-Term (1-2 Months)
+- [ ] Increase test coverage to 90%+
+- [ ] External security audit
+- [ ] Implement upgradeability (proxy pattern)
+- [ ] Complete monitoring stack (Grafana + alerts)
 
-### 🏗️ Implementation Complexity
+### Long-Term (3-6 Months)
+- [ ] Production deployment to BSC mainnet
+- [ ] Oracle integration (Chainlink)
+- [ ] Multi-DEX routing optimization
+- [ ] Bug bounty program
 
-```
-Code Complexity Metrics:
-┌────────────────────┬─────────┬──────────┬────────────┐
-│ Component          │  LoC    │ Cyclo-   │ Mathematical│
-│                    │         │ matic    │ Complexity  │
-├────────────────────┼─────────┼──────────┼────────────┤
-│ MathLib           │   387   │    45    │   ⭐⭐⭐⭐⭐  │
-│ PoolLib           │   524   │    62    │   ⭐⭐⭐⭐   │
-│ SecurityLib       │   298   │    38    │   ⭐⭐⭐    │
-│ BofhContractV2    │   812   │    89    │   ⭐⭐⭐⭐⭐  │
-│ Swap Algorithms   │   645   │    74    │   ⭐⭐⭐⭐⭐  │
-└────────────────────┴─────────┴──────────┴────────────┘
+See [Project Roadmap](docs/PROJECT_ROADMAP.md) for complete timeline.
 
-Total: 2,666 lines | Avg Cyclomatic: 61.6 | Graduate-level math
-```
-
-## 🚀 Quick Reference
-
-### Core Swap Functions
-
-```solidity
-/// @notice Execute optimized 4-way or 5-way swap using golden ratio
-/// @dev Implements φ-based path splitting with MEV protection
-/// @param path Token addresses [baseToken, ...intermediary, baseToken]
-/// @param fees Fee rates for each pool (basis points)
-/// @param amountIn Initial investment amount
-/// @param minAmountOut Minimum acceptable return (slippage protection)
-/// @param deadline Transaction must complete before this timestamp
-/// @return Final amount received after swap completion
-function executeSwap(
-    address[] calldata path,
-    uint256[] calldata fees,
-    uint256 amountIn,
-    uint256 minAmountOut,
-    uint256 deadline
-) external returns (uint256);
-
-/// @notice Execute multiple parallel swap paths simultaneously
-/// @dev Optimized for batch processing with reduced gas overhead
-function executeMultiSwap(
-    address[][] calldata paths,
-    uint256[][] calldata fees,
-    uint256[] calldata amounts,
-    uint256[] calldata minAmounts,
-    uint256 deadline
-) external returns (uint256[] memory);
-```
-
-### 📐 Mathematical Constants
-
-```solidity
-uint256 constant GOLDEN_RATIO = 618034;        // φ⁻¹ × 1e6
-uint256 constant GOLDEN_RATIO_SQUARED = 381966; // φ⁻² × 1e6
-uint256 constant PRECISION = 1e6;              // Base precision
-uint256 constant MAX_SLIPPAGE = 10000;         // 1% (10000/1e6)
-uint256 constant MAX_PATH_LENGTH = 5;          // Maximum swap hops
-```
-
-### 🎯 Real-World Trade Example
-
-```solidity
-// Example: $100,000 arbitrage trade
-// Path: BUSD → BNB → ETH → USDT → BUSD
-
-address[] memory path = new address[](5);
-path[0] = BUSD;   // Start token
-path[1] = BNB;    // Hop 1
-path[2] = ETH;    // Hop 2
-path[3] = USDT;   // Hop 3
-path[4] = BUSD;   // Return to start (circular arbitrage)
-
-uint256[] memory fees = [25, 30, 25, 25]; // 0.25%, 0.30%, 0.25%, 0.25%
-
-uint256 amountIn = 100_000 * 1e18;  // $100,000
-uint256 minOut = 101_500 * 1e18;    // Expect $101,500+ (1.5% profit)
-
-uint256 profit = executeSwap(
-    path,
-    fees,
-    amountIn,
-    minOut,
-    block.timestamp + 300  // 5 min deadline
-);
-
-// Expected result: ~$103,375 (3.375% profit)
-// Actual 6-month average: 3.375% per successful trade
-```
-
-## 📚 Complete Documentation Suite
-
-Dive deeper into the technical implementation:
-
-| Document | Topic | Depth |
-|----------|-------|-------|
-| 🏗️ [Architecture Overview](docs/ARCHITECTURE.md) | System design, components, upgrade patterns | ⭐⭐⭐⭐ |
-| 📐 [Mathematical Foundations](docs/MATHEMATICAL_FOUNDATIONS.md) | CPMM theory, optimization algorithms | ⭐⭐⭐⭐⭐ |
-| 🔄 [Swap Algorithms](docs/SWAP_ALGORITHMS.md) | 4-way & 5-way implementation details | ⭐⭐⭐⭐⭐ |
-| 🛡️ [Security Analysis](docs/SECURITY.md) | MEV protection, circuit breakers, access control | ⭐⭐⭐⭐ |
-| 🧪 [Testing Framework](docs/TESTING.md) | Unit tests, integration tests, benchmarks | ⭐⭐⭐ |
-
-## 🎯 Project Achievements Summary
-
-```
-╔═══════════════════════════════════════════════════════════════╗
-║             BOFHCONTRACT V2 - ACHIEVEMENTS                     ║
-╠═══════════════════════════════════════════════════════════════╣
-║                                                                ║
-║  💰 Financial Metrics:                                        ║
-║     • Total Volume:        $1.247 Billion                     ║
-║     • Total Profits:       $420.3 Million                     ║
-║     • Success Rate:        99.92%                             ║
-║     • Sharpe Ratio:        3.84                               ║
-║                                                                ║
-║  ⚡ Technical Excellence:                                     ║
-║     • Gas Optimization:    43% better than competitors        ║
-║     • Price Impact:        66% reduction vs traditional       ║
-║     • MEV Protection:      99.98% effective                   ║
-║     • Mathematical Model:  Graduate-level complexity          ║
-║                                                                ║
-║  🏆 Innovation:                                               ║
-║     • First φ-based DEX optimizer                             ║
-║     • Novel dynamic programming implementation               ║
-║     • Advanced Taylor expansion price modeling               ║
-║     • Multi-layer security architecture                       ║
-║                                                                ║
-╚═══════════════════════════════════════════════════════════════╝
-```
+---
 
 ## 🤝 Contributing
 
-We welcome contributions from researchers and developers! Please read our detailed documentation before contributing:
-
-1. 🍴 **Fork** the repository
-2. 🌿 **Create** your feature branch (`git checkout -b feature/AmazingFeature`)
-3. 📝 **Commit** your changes (`git commit -m 'Add some AmazingFeature'`)
-4. 🚀 **Push** to the branch (`git push origin feature/AmazingFeature`)
-5. 🎁 **Create** a Pull Request
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting PRs.
 
 ### Areas for Contribution
 
-- 🧮 **Mathematical Models**: Improvements to optimization algorithms
+- 🧮 **Mathematical Models**: Optimization algorithm improvements
 - 🔒 **Security**: Enhanced MEV protection mechanisms
 - ⚡ **Performance**: Gas optimization techniques
-- 📊 **Analytics**: Trading strategy analysis tools
-- 📖 **Documentation**: Academic papers, tutorials, guides
+- 🧪 **Testing**: Increased coverage and edge case testing
+- 📖 **Documentation**: Tutorials, guides, and examples
+
+### Development Setup
+
+1. Fork the repository
+2. Create feature branch: `git checkout -b feature/AmazingFeature`
+3. Make changes and add tests
+4. Run linters: `npm run lint`
+5. Run tests: `npm test`
+6. Commit: `git commit -m 'Add AmazingFeature'`
+7. Push: `git push origin feature/AmazingFeature`
+8. Create Pull Request
+
+---
 
 ## 📄 License
 
 **UNLICENSED** - Proprietary software for research and educational purposes.
 
-## 💬 Support and Resources
+See [LICENSE](LICENSE) for details.
 
-- 📖 **Documentation**: See `/docs` directory for comprehensive guides
-- 🐛 **Issues**: Report bugs via GitHub Issues
-- 💭 **Discussion**: Join our community on GitHub Discussions
-- 🔬 **Research**: Academic papers and whitepapers in development
+---
+
+## 💬 Support
+
+- 📖 **Documentation**: See `/docs` directory
+- 🐛 **Issues**: [GitHub Issues](https://github.com/Bofh-Reloaded/BofhContract/issues)
+- 💭 **Discussions**: [GitHub Discussions](https://github.com/Bofh-Reloaded/BofhContract/discussions)
+
+---
 
 ## 🙏 Acknowledgments
 
-Special thanks to:
-
-- **Mathematical Finance Community**: For foundational work in AMM optimization
-- **DeFi Researchers**: For pioneering MEV protection mechanisms
 - **OpenZeppelin**: For security best practices and audited libraries
-- **Uniswap Team**: For establishing the CPMM standard
-- **Academic Contributors**: From fields of optimization theory, numerical analysis, and game theory
+- **Uniswap Team**: For pioneering the CPMM standard
+- **Hardhat Team**: For excellent development tooling
+- **DeFi Community**: For research and innovation in AMM optimization
 
 ---
 
 <div align="center">
 
-### ⚡ Built with Graduate-Level Mathematics & Financial Engineering Excellence ⚡
+### Built with Advanced Mathematics & Security-First Design
 
-**BofhContract V2** - *Where φ meets DeFi*
+**BofhContract V2** - *Where Golden Ratio meets DeFi*
 
-```
-   ___       ___  _     ___         _                  _
-  | _ ) ___ / _|| |_  / __|___ _ _| |_ _ _ __ _ __ _| |_
-  | _ \/ _ \  _|| ' \| (__/ _ \ ' \  _| '_/ _` / _| |  _|
-  |___/\___/_|  |_||_|\___\___/_||_\__|_| \__,_\__|_|\__|
-
-              🏆 $1.2B+ Volume | $420M+ Profits 🏆
-```
-
-*"The only DEX optimizer using the golden ratio for provably optimal path splitting"*
+`v1.5.0 | 153 Tests Passing | 8.1/10 Score | Pre-Production`
 
 </div>
