@@ -1,0 +1,127 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# ============================================
+# Source Code
+# ============================================
+
+# Solidity
+*.sol text eol=lf
+*.abi text eol=lf
+
+# JavaScript
+*.js text eol=lf
+*.mjs text eol=lf
+*.cjs text eol=lf
+*.json text eol=lf
+*.jsx text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+
+# Python
+*.py text eol=lf
+*.pyx text eol=lf
+*.pxd text eol=lf
+
+# Web
+*.html text eol=lf
+*.css text eol=lf
+*.scss text eol=lf
+*.sass text eol=lf
+
+# ============================================
+# Configuration & Documentation
+# ============================================
+
+# Config files
+*.yml text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.ini text eol=lf
+*.cfg text eol=lf
+*.conf text eol=lf
+.editorconfig text eol=lf
+.gitignore text eol=lf
+.gitattributes text eol=lf
+
+# Markdown
+*.md text eol=lf
+*.markdown text eol=lf
+
+# Text files
+*.txt text eol=lf
+LICENSE text eol=lf
+README text eol=lf
+
+# ============================================
+# Scripts
+# ============================================
+
+# Shell scripts
+*.sh text eol=lf
+*.bash text eol=lf
+*.zsh text eol=lf
+*.fish text eol=lf
+
+# Batch scripts
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# ============================================
+# Binary Files
+# ============================================
+
+# Images
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg binary
+*.webp binary
+*.bmp binary
+
+# Fonts
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.eot binary
+
+# Documents
+*.pdf binary
+*.doc binary
+*.docx binary
+*.xls binary
+*.xlsx binary
+*.ppt binary
+*.pptx binary
+
+# Archives
+*.zip binary
+*.tar binary
+*.gz binary
+*.bz2 binary
+*.7z binary
+*.rar binary
+
+# Executables
+*.exe binary
+*.dll binary
+*.so binary
+*.dylib binary
+*.bin binary
+
+# ============================================
+# Git Diff Attributes
+# ============================================
+
+# Lockfiles - do not diff
+package-lock.json -diff
+yarn.lock -diff
+Pipfile.lock -diff
+
+# Generated files - do not diff
+*.min.js -diff
+*.min.css -diff
