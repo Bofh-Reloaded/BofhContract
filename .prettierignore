@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+artifacts/
+cache/
+build/
+dist/
+typechain-types/
+
+# Coverage
+coverage/
+.coverage_artifacts/
+
+# Python
+__pycache__/
+*.egg-info/
+venv/
+.venv/
+
+# Documentation builds
+docs/_build/
+
+# Temporary files
+*.tmp
+*.log
+
+# Package files
+package-lock.json
+yarn.lock
+
+# Git
+.git/
+.gitignore

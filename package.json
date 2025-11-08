@@ -12,7 +12,15 @@
     "security:install": "pip install slither-analyzer",
     "migrate:truffle": "truffle migrate --network bscTestnet --reset",
     "compile:truffle": "truffle compile --network bscTestnet",
-    "test:truffle": "truffle test"
+    "test:truffle": "truffle test",
+    "lint": "npm run lint:sol && npm run lint:js",
+    "lint:sol": "solhint 'contracts/**/*.sol'",
+    "lint:sol:fix": "solhint 'contracts/**/*.sol' --fix",
+    "lint:js": "eslint '**/*.js'",
+    "lint:js:fix": "eslint '**/*.js' --fix",
+    "format": "prettier --write '**/*.{sol,js,json,md}'",
+    "format:check": "prettier --check '**/*.{sol,js,json,md}'",
+    "prepare": "husky install || true"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^4.9.6",
