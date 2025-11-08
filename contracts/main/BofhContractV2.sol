@@ -207,8 +207,8 @@ contract BofhContractV2 is BofhContractBase, IBofhContract {
 
     /// @notice Execute multiple swaps through different paths in parallel
     /// @dev Implements virtual function from BofhContractBase with required security modifiers
-    /// @dev Protected by: nonReentrant (reentrancy guard), whenNotPaused (circuit breaker)
-    /// @dev NOTE: antiMEV modifier not applied here due to stack depth limitations
+    /// @dev Protected by: nonReentrant (reentrancy guard), whenNotPaused (circuit breaker), antiMEV (flash loan detection)
+    /// @dev Issue #24: Added antiMEV modifier after refactoring to reduce stack depth
     /// @param paths Array of swap paths, each path is an array of token addresses
     /// @param fees Array of fee arrays, one per path
     /// @param amounts Array of input amounts, one per path
@@ -221,7 +221,7 @@ contract BofhContractV2 is BofhContractBase, IBofhContract {
         uint256[] calldata amounts,
         uint256[] calldata minAmounts,
         uint256 deadline
-    ) external override(BofhContractBase, IBofhContract) nonReentrant whenNotPaused returns (uint256[] memory) {
+    ) external override(BofhContractBase, IBofhContract) nonReentrant whenNotPaused antiMEV returns (uint256[] memory) {
         // === Comprehensive Input Validation (Issue #8) ===
 
         // 1. Deadline validation

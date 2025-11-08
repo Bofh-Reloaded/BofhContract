@@ -211,7 +211,6 @@ BofhContractV2 (main implementation - 404 lines)
 
 ### Known Limitations
 
-⚠️ **Stack Depth Issue**: `executeMultiSwap` lacks `antiMEV` modifier due to stack depth
 ⚠️ **No Oracle Integration**: Relies on pool reserves only
 ⚠️ **Centralization**: Single owner has significant control (mitigate with multisig)
 
@@ -355,7 +354,7 @@ GitHub Actions workflows:
 ## 🗺️ Roadmap
 
 ### Immediate (Next 2 Weeks)
-- [ ] Fix antiMEV stack depth issue in `executeMultiSwap`
+- [x] Fix antiMEV stack depth issue in `executeMultiSwap` (✅ Completed - Issue #24)
 - [ ] Complete Hardhat deployment scripts
 - [ ] Remove legacy Truffle dependencies
 - [ ] Add emergency token recovery function

@@ -110,40 +110,53 @@ abstract contract BofhContractBase is IBofhContractBase {
         securityState.exitProtectedSection();
     }
 
+    /// @notice Internal function to check MEV protection before transaction
+    /// @dev Validates flash loan detection and rate limiting rules
+    /// @dev Separated from modifier to reduce stack depth (Issue #24)
+    /// @custom:security Reverts with FlashLoanDetected if too many txs in one block
+    /// @custom:security Reverts with RateLimitExceeded if transactions too frequent
+    function _checkMEVProtection() internal {
+        if (!mevProtectionEnabled) return;
+
+        RateLimitState storage limit = rateLimits[msg.sender];
+
+        // Detect flash loan (multiple transactions in same block)
+        if (limit.lastBlockNumber == block.number) {
+            limit.transactionsThisBlock++;
+            if (limit.transactionsThisBlock > maxTxPerBlock) {
+                revert FlashLoanDetected();
+            }
+        } else {
+            limit.lastBlockNumber = block.number;
+            limit.transactionsThisBlock = 1;
+        }
+
+        // Enforce minimum delay between transactions
+        if (block.timestamp - limit.lastTransactionTimestamp < minTxDelay) {
+            revert RateLimitExceeded();
+        }
+    }
+
+    /// @notice Internal function to update MEV protection state after transaction
+    /// @dev Updates timestamp after successful execution
+    /// @dev Separated from modifier to reduce stack depth (Issue #24)
+    function _updateMEVProtection() internal {
+        if (!mevProtectionEnabled) return;
+        rateLimits[msg.sender].lastTransactionTimestamp = block.timestamp;
+    }
+
     /// @notice Modifier to prevent MEV attacks via flash loan detection and rate limiting
     /// @dev Only enforces checks when mevProtectionEnabled = true
     /// @dev Flash loan detection: Counts transactions per block, reverts if > maxTxPerBlock
     /// @dev Rate limiting: Enforces minTxDelay seconds between consecutive transactions
     /// @dev Added in Issue #9 for MEV protection
+    /// @dev Refactored in Issue #24 to reduce stack depth by extracting logic to internal functions
     /// @custom:security Reverts with FlashLoanDetected if too many txs in one block
     /// @custom:security Reverts with RateLimitExceeded if transactions too frequent
     modifier antiMEV() {
-        if (mevProtectionEnabled) {
-            RateLimitState storage limit = rateLimits[msg.sender];
-
-            // Detect flash loan (multiple transactions in same block)
-            if (limit.lastBlockNumber == block.number) {
-                limit.transactionsThisBlock++;
-                if (limit.transactionsThisBlock > maxTxPerBlock) {
-                    revert FlashLoanDetected();
-                }
-            } else {
-                limit.lastBlockNumber = block.number;
-                limit.transactionsThisBlock = 1;
-            }
-
-            // Enforce minimum delay between transactions
-            if (block.timestamp - limit.lastTransactionTimestamp < minTxDelay) {
-                revert RateLimitExceeded();
-            }
-
-            _;
-
-            // Update timestamp after successful execution
-            limit.lastTransactionTimestamp = block.timestamp;
-        } else {
-            _;
-        }
+        _checkMEVProtection();
+        _;
+        _updateMEVProtection();
     }
 
     /// @notice Initialize base contract with owner and base token, set default risk parameters
