@@ -5,6 +5,7 @@ import "../libs/SecurityLib.sol";
 import "../libs/MathLib.sol";
 import "../libs/PoolLib.sol";
 import "../interfaces/ISwapInterfaces.sol";
+import "../interfaces/IBofhContractBase.sol";
 
 /// @title BofhContractBase - Abstract Base Contract with Security and Risk Management
 /// @author Bofh Team
@@ -12,7 +13,7 @@ import "../interfaces/ISwapInterfaces.sol";
 /// @dev Abstract contract inherited by BofhContractV2, implements security primitives and modifiers
 /// @custom:security Implements reentrancy protection, access control, pause mechanism, and MEV protection
 /// @custom:risk Configurable risk parameters: maxTradeVolume, minPoolLiquidity, maxPriceImpact, sandwichProtection
-abstract contract BofhContractBase {
+abstract contract BofhContractBase is IBofhContractBase {
     using SecurityLib for SecurityLib.SecurityState;
     using PoolLib for PoolLib.PoolState;
 
@@ -69,36 +70,10 @@ abstract contract BofhContractBase {
     /// @notice Minimum delay required between transactions in seconds (rate limiting)
     uint256 public minTxDelay = 12; // seconds
 
-    /// @notice Emitted when MEV protection configuration is updated
-    /// @param enabled New enabled status
-    /// @param maxTxPerBlock New maximum transactions per block
-    /// @param minTxDelay New minimum delay between transactions
-    event MEVProtectionUpdated(bool enabled, uint256 maxTxPerBlock, uint256 minTxDelay);
-
-    /// @notice Thrown when flash loan attack is detected (too many transactions per block)
-    error FlashLoanDetected();
-
-    /// @notice Thrown when user exceeds transaction rate limit (transactions too frequent)
-    error RateLimitExceeded();
-    
-    /// @notice Emitted when pool blacklist status changes
-    /// @param pool Address of the pool
-    /// @param blacklisted New blacklist status (true = blacklisted, false = whitelisted)
-    event PoolBlacklisted(address indexed pool, bool blacklisted);
-
-    /// @notice Emitted when risk management parameters are updated
-    /// @param maxVolume New maximum trade volume
-    /// @param minLiquidity New minimum pool liquidity
-    /// @param maxImpact New maximum price impact
-    /// @param sandwichProtection New sandwich protection in basis points
-    event RiskParamsUpdated(
-        uint256 maxVolume,
-        uint256 minLiquidity,
-        uint256 maxImpact,
-        uint256 sandwichProtection
-    );
+    // Events and errors inherited from IBofhContractBase interface
 
     /// @notice Emitted when a swap is successfully executed
+    /// @dev Defined here (not in interface) since it's emitted by derived contracts
     /// @param initiator Address that initiated the swap
     /// @param pathLength Number of tokens in the swap path
     /// @param inputAmount Amount of input tokens

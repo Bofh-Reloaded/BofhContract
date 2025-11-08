@@ -3,6 +3,7 @@ pragma solidity >=0.8.10;
 
 import "./BofhContractBase.sol";
 import "../interfaces/ISwapInterfaces.sol";
+import "../interfaces/IBofhContract.sol";
 
 /// @title BofhContractV2 - Advanced Multi-Path Token Swap Router
 /// @author Bofh Team
@@ -10,7 +11,7 @@ import "../interfaces/ISwapInterfaces.sol";
 /// @dev Implements 3/4/5-way swap path optimization with comprehensive security features
 /// @custom:security Inherits security from BofhContractBase (reentrancy, access control, MEV protection)
 /// @custom:optimization Uses golden ratio (φ ≈ 0.618034) for 4-way and 5-way path distribution
-contract BofhContractV2 is BofhContractBase {
+contract BofhContractV2 is BofhContractBase, IBofhContract {
     using MathLib for uint256;
     using PoolLib for PoolLib.PoolState;
 
@@ -35,35 +36,7 @@ contract BofhContractV2 is BofhContractBase {
         uint256 cumulativeImpact;
     }
 
-    /// @notice Thrown when swap path structure is invalid (wrong start/end token, length constraints)
-    error InvalidPath();
-
-    /// @notice Thrown when final output amount is less than minAmountOut
-    error InsufficientOutput();
-
-    /// @notice Thrown when price slippage exceeds MAX_SLIPPAGE (1%)
-    error ExcessiveSlippage();
-
-    /// @notice Thrown when path length exceeds MAX_PATH_LENGTH (5)
-    error PathTooLong();
-
-    /// @notice Thrown when block.timestamp > deadline
-    error DeadlineExpired();
-
-    /// @notice Thrown when pool liquidity is below minimum threshold
-    error InsufficientLiquidity();
-
-    /// @notice Thrown when address parameter is address(0) or invalid
-    error InvalidAddress();
-
-    /// @notice Thrown when amount parameter is 0 or invalid
-    error InvalidAmount();
-
-    /// @notice Thrown when array lengths don't match expected values
-    error InvalidArrayLength();
-
-    /// @notice Thrown when fee exceeds maximum allowed (100% = 10000 bps)
-    error InvalidFee();
+    // Custom errors inherited from IBofhContract interface
 
     /// @notice Thrown when base token address is zero (constructor validation)
     error InvalidBaseToken();
@@ -71,17 +44,8 @@ contract BofhContractV2 is BofhContractBase {
     /// @notice Thrown when factory address is zero (constructor validation)
     error InvalidFactory();
 
-    /// @notice Thrown when token transfer fails
-    error TransferFailed();
-
-    /// @notice Thrown when multi-swap execution is unprofitable
-    error UnprofitableExecution();
-
-    /// @notice Thrown when swap parameters are invalid (pool validation fails)
-    error InvalidSwapParameters();
-
-    /// @notice Thrown when pair does not exist in factory
-    error PairDoesNotExist();
+    // Additional errors inherited from IBofhContract interface:
+    // TransferFailed, UnprofitableExecution
 
     /// @notice Deploy BofhContractV2 with base token and factory addresses
     /// @dev Validates addresses are non-zero, initializes immutable state
@@ -237,7 +201,7 @@ contract BofhContractV2 is BofhContractBase {
         uint256 amountIn,
         uint256 minAmountOut,
         uint256 deadline
-    ) external override nonReentrant whenNotPaused antiMEV returns (uint256) {
+    ) external override(BofhContractBase, IBofhContract) nonReentrant whenNotPaused antiMEV returns (uint256) {
         return _executeSwap(path, fees, amountIn, minAmountOut, deadline);
     }
 
@@ -257,7 +221,7 @@ contract BofhContractV2 is BofhContractBase {
         uint256[] calldata amounts,
         uint256[] calldata minAmounts,
         uint256 deadline
-    ) external override nonReentrant whenNotPaused returns (uint256[] memory) {
+    ) external override(BofhContractBase, IBofhContract) nonReentrant whenNotPaused returns (uint256[] memory) {
         // === Comprehensive Input Validation (Issue #8) ===
 
         // 1. Deadline validation
