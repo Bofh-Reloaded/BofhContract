@@ -4,7 +4,7 @@
 
 **Advanced Multi-Path Token Swap Optimizer for Binance Smart Chain**
 
-[![Tests](https://img.shields.io/badge/tests-153%20passing-brightgreen)](https://github.com/Bofh-Reloaded/BofhContract)
+[![Tests](https://img.shields.io/badge/tests-163%20passing-brightgreen)](https://github.com/Bofh-Reloaded/BofhContract)
 [![Coverage](https://img.shields.io/badge/coverage-improving-yellow)](https://github.com/Bofh-Reloaded/BofhContract)
 [![License](https://img.shields.io/badge/license-UNLICENSED-blue)](LICENSE)
 [![Solidity](https://img.shields.io/badge/solidity-0.8.10-363636)](https://docs.soliditylang.org)
@@ -202,6 +202,7 @@ BofhContractV2 (main implementation - 404 lines)
 ✅ **Access Control** - Owner and operator roles
 ✅ **Circuit Breakers** - Emergency pause functionality
 ✅ **Pool Blacklisting** - Manual pool exclusion capability
+✅ **Emergency Token Recovery** - Rescue mechanism for accidentally sent tokens
 
 ### Security Audits
 
@@ -255,17 +256,18 @@ See [Mathematical Foundations](docs/MATHEMATICAL_FOUNDATIONS.md) for complete de
 
 ### Test Suite
 
-**7 test files, 153 tests, 100% passing**
+**8 test files, 163 tests, 100% passing**
 
 ```bash
 test/
-├── BofhContractV2.test.js       # Main contract tests (47 tests)
-├── Libraries.test.js            # Library function tests (42 tests)
-├── SwapExecution.test.js        # Swap logic tests (25 tests)
-├── MEVProtection.test.js        # MEV protection tests (12 tests)
-├── MultiSwap.test.js            # Multi-path tests (15 tests)
-├── ViewFunctions.test.js        # View function tests (10 tests)
-└── test_bofh_contract.py        # Python CLI tests (2 tests)
+├── BofhContractV2.test.js            # Main contract tests (47 tests)
+├── Libraries.test.js                 # Library function tests (42 tests)
+├── SwapExecution.test.js             # Swap logic tests (25 tests)
+├── MEVProtection.test.js             # MEV protection tests (12 tests)
+├── MultiSwap.test.js                 # Multi-path tests (15 tests)
+├── ViewFunctions.test.js             # View function tests (10 tests)
+├── EmergencyTokenRecovery.test.js    # Emergency recovery tests (11 tests)
+└── test_bofh_contract.py             # Python CLI tests (2 tests - not counted)
 ```
 
 ### Test Coverage
@@ -363,7 +365,7 @@ GitHub Actions workflows:
 - [x] Fix antiMEV stack depth issue in `executeMultiSwap` (✅ Completed - Issue #24)
 - [x] Complete Hardhat deployment scripts (✅ Completed - Issue #25)
 - [x] Remove legacy Truffle dependencies (✅ Completed - Issue #27)
-- [ ] Add emergency token recovery function
+- [x] Add emergency token recovery function (✅ Completed - Issue #26)
 
 ### Short-Term (1-2 Months)
 - [ ] Increase test coverage to 90%+
@@ -437,6 +439,6 @@ See [LICENSE](LICENSE) for details.
 
 **BofhContract V2** - *Where Golden Ratio meets DeFi*
 
-`v1.5.0 | 153 Tests Passing | 8.1/10 Score | Pre-Production`
+`v1.5.0 | 163 Tests Passing | 8.1/10 Score | Pre-Production`
 
 </div>

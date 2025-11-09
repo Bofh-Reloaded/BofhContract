@@ -101,6 +101,14 @@ abstract contract BofhContractBase is IBofhContractBase {
         _;
     }
 
+    /// @notice Modifier to ensure execution only when contract is paused
+    /// @dev Used for emergency-only functions that should only work in paused state
+    /// @dev Reverts with custom error if contract is not paused
+    modifier whenPaused() {
+        require(securityState.paused, "BofhContractBase: Contract is not paused");
+        _;
+    }
+
     /// @notice Modifier to prevent reentrancy attacks
     /// @dev Uses SecurityLib enter/exitProtectedSection with function selector
     /// @dev Locks before execution, unlocks after, reverts if already locked
@@ -280,6 +288,38 @@ abstract contract BofhContractBase is IBofhContractBase {
         bool status
     ) external onlyOwner {
         securityState.setOperator(operator, status);
+    }
+
+    /// @notice Recover ERC20 tokens accidentally sent to the contract
+    /// @dev Only callable by owner when contract is paused (emergency state)
+    /// @dev Provides mechanism to rescue tokens sent by mistake or stuck due to failed swaps
+    /// @param token Address of ERC20 token to recover
+    /// @param to Recipient address (where recovered tokens will be sent)
+    /// @param amount Amount of tokens to recover
+    /// @custom:security Access controlled via onlyOwner modifier
+    /// @custom:security Only available in emergency mode (whenPaused)
+    /// @custom:security Validates all parameters before execution
+    /// @custom:security Emits EmergencyTokenRecovery event for transparency
+    function emergencyTokenRecovery(
+        address token,
+        address to,
+        uint256 amount
+    ) external override onlyOwner whenPaused {
+        require(token != address(0), "BofhContractBase: Invalid token address");
+        require(to != address(0), "BofhContractBase: Invalid recipient address");
+        require(amount > 0, "BofhContractBase: Amount must be greater than zero");
+
+        // Check contract has sufficient balance
+        uint256 balance = IBEP20(token).balanceOf(address(this));
+        require(balance >= amount, "BofhContractBase: Insufficient token balance");
+
+        // Transfer tokens to recipient
+        require(
+            IBEP20(token).transfer(to, amount),
+            "BofhContractBase: Token transfer failed"
+        );
+
+        emit EmergencyTokenRecovery(token, to, amount, msg.sender);
     }
 
     /// @notice Virtual swap execution function to be implemented by derived contracts

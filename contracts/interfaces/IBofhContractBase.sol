@@ -33,6 +33,18 @@ interface IBofhContractBase {
     /// @param minTxDelay New minimum delay between transactions
     event MEVProtectionUpdated(bool enabled, uint256 maxTxPerBlock, uint256 minTxDelay);
 
+    /// @notice Emitted when tokens are recovered from the contract
+    /// @param token Address of the recovered token
+    /// @param to Recipient address
+    /// @param amount Amount of tokens recovered
+    /// @param recoveredBy Address that initiated the recovery (owner)
+    event EmergencyTokenRecovery(
+        address indexed token,
+        address indexed to,
+        uint256 amount,
+        address indexed recoveredBy
+    );
+
     // ============================================
     // ERRORS
     // ============================================
@@ -95,6 +107,18 @@ interface IBofhContractBase {
     /// @param operator Address to grant/revoke operator status
     /// @param status True to grant operator role, false to revoke
     function setOperator(address operator, bool status) external;
+
+    /// @notice Recover ERC20 tokens accidentally sent to the contract
+    /// @dev Only callable by owner when contract is paused (emergency state)
+    /// @dev Provides mechanism to rescue tokens sent by mistake or stuck due to failed swaps
+    /// @param token Address of ERC20 token to recover
+    /// @param to Recipient address (where recovered tokens will be sent)
+    /// @param amount Amount of tokens to recover
+    function emergencyTokenRecovery(
+        address token,
+        address to,
+        uint256 amount
+    ) external;
 
     // ============================================
     // VIEW FUNCTIONS
