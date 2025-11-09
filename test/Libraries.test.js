@@ -850,5 +850,113 @@ describe("Libraries", function () {
         await expect(securityLib.testValidateDeadline(recentPast, 60)).to.not.be.reverted;
       });
     });
+
+    describe("Function Cooldown Management", function () {
+      it("Should allow owner to set function cooldown", async function () {
+        const { securityLib, owner } = await loadFixture(deployLibraryTestsFixture);
+        const selector = "0x12345678"; // Example function selector
+        const cooldownPeriod = 300; // 5 minutes
+
+        await expect(
+          securityLib.connect(owner).testSetFunctionCooldown(selector, cooldownPeriod)
+        ).to.not.be.reverted;
+      });
+
+      it("Should prevent non-owner from setting function cooldown", async function () {
+        const { securityLib, user1 } = await loadFixture(deployLibraryTestsFixture);
+        const selector = "0x12345678";
+        const cooldownPeriod = 300;
+
+        await expect(
+          securityLib.connect(user1).testSetFunctionCooldown(selector, cooldownPeriod)
+        ).to.be.revertedWithCustomError(securityLib, "Unauthorized");
+      });
+
+      it("Should allow setting zero cooldown", async function () {
+        const { securityLib, owner } = await loadFixture(deployLibraryTestsFixture);
+        const selector = "0x12345678";
+
+        await expect(
+          securityLib.connect(owner).testSetFunctionCooldown(selector, 0)
+        ).to.not.be.reverted;
+      });
+
+      it("Should allow setting different cooldowns for different functions", async function () {
+        const { securityLib, owner } = await loadFixture(deployLibraryTestsFixture);
+        const selector1 = "0x12345678";
+        const selector2 = "0xabcdef00";
+
+        await expect(
+          securityLib.connect(owner).testSetFunctionCooldown(selector1, 100)
+        ).to.not.be.reverted;
+
+        await expect(
+          securityLib.connect(owner).testSetFunctionCooldown(selector2, 200)
+        ).to.not.be.reverted;
+      });
+    });
+
+    describe("Address Validation", function () {
+      it("Should reject zero address", async function () {
+        const { securityLib } = await loadFixture(deployLibraryTestsFixture);
+        await expect(
+          securityLib.testValidateAddress(ethers.ZeroAddress)
+        ).to.be.revertedWithCustomError(securityLib, "InvalidAddress");
+      });
+
+      it("Should reject EOA (no bytecode)", async function () {
+        const { securityLib, user1 } = await loadFixture(deployLibraryTestsFixture);
+        // user1 is an EOA with no bytecode
+        await expect(
+          securityLib.testValidateAddress(user1.address)
+        ).to.be.revertedWithCustomError(securityLib, "InvalidAddress");
+      });
+
+      it("Should accept contract address with bytecode", async function () {
+        const { securityLib, mathLib } = await loadFixture(deployLibraryTestsFixture);
+        // mathLib is a deployed contract with bytecode
+        const mathLibAddress = await mathLib.getAddress();
+        await expect(securityLib.testValidateAddress(mathLibAddress)).to.not.be.reverted;
+      });
+
+      it("Should accept securityLib own address", async function () {
+        const { securityLib } = await loadFixture(deployLibraryTestsFixture);
+        const securityLibAddress = await securityLib.getAddress();
+        await expect(securityLib.testValidateAddress(securityLibAddress)).to.not.be
+          .reverted;
+      });
+    });
+
+    describe("Contract Detection", function () {
+      it("Should allow EOA addresses", async function () {
+        const { securityLib, user1 } = await loadFixture(deployLibraryTestsFixture);
+        // user1 is an EOA, should pass
+        await expect(securityLib.testEnsureNotContract(user1.address)).to.not.be.reverted;
+      });
+
+      it("Should reject contract addresses", async function () {
+        const { securityLib, mathLib } = await loadFixture(deployLibraryTestsFixture);
+        // mathLib is a contract, should fail
+        const mathLibAddress = await mathLib.getAddress();
+        await expect(
+          securityLib.testEnsureNotContract(mathLibAddress)
+        ).to.be.revertedWithCustomError(securityLib, "InvalidAddress");
+      });
+
+      it("Should reject securityLib contract address", async function () {
+        const { securityLib } = await loadFixture(deployLibraryTestsFixture);
+        const securityLibAddress = await securityLib.getAddress();
+        await expect(
+          securityLib.testEnsureNotContract(securityLibAddress)
+        ).to.be.revertedWithCustomError(securityLib, "InvalidAddress");
+      });
+
+      it("Should allow zero address as EOA", async function () {
+        const { securityLib } = await loadFixture(deployLibraryTestsFixture);
+        // Zero address has no bytecode, so it's treated as EOA
+        await expect(securityLib.testEnsureNotContract(ethers.ZeroAddress)).to.not.be
+          .reverted;
+      });
+    });
   });
 });
