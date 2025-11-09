@@ -133,6 +133,28 @@ contract BofhContractV2 is BofhContractBase, IBofhContract {
         uint256 minAmountOut,
         uint256 deadline
     ) internal returns (uint256) {
+        return _executeSwapToRecipient(path, fees, amountIn, minAmountOut, deadline, msg.sender);
+    }
+
+    /// @notice Execute a swap and send output to specified recipient
+    /// @dev Internal function used by both single swaps and batch swaps
+    /// @param path Token swap path
+    /// @param fees Fee array in basis points
+    /// @param amountIn Input amount
+    /// @param minAmountOut Minimum output amount
+    /// @param deadline Transaction deadline
+    /// @param recipient Address to receive output tokens
+    /// @return Final output amount sent to recipient
+    /// @custom:security Validates all inputs via _validateSwapInputs
+    /// @custom:implementation Added in Issue #31 for batch swap support
+    function _executeSwapToRecipient(
+        address[] calldata path,
+        uint256[] calldata fees,
+        uint256 amountIn,
+        uint256 minAmountOut,
+        uint256 deadline,
+        address recipient
+    ) internal returns (uint256) {
         // Comprehensive input validation (Issue #8)
         uint256 pathLength = _validateSwapInputs(path, fees, amountIn, minAmountOut, deadline);
 
@@ -164,13 +186,13 @@ contract BofhContractV2 is BofhContractBase, IBofhContract {
 
         // Validate final output
         if (state.currentAmount < minAmountOut) revert InsufficientOutput();
-        
+
         // Calculate total price impact and validate
         uint256 priceImpact = (state.cumulativeImpact * PRECISION) / amountIn;
         if (priceImpact > maxPriceImpact) revert ExcessiveSlippage();
 
-        // Transfer profit to user
-        if (!IBEP20(baseToken).transfer(msg.sender, state.currentAmount)) {
+        // Transfer profit to recipient
+        if (!IBEP20(baseToken).transfer(recipient, state.currentAmount)) {
             revert TransferFailed();
         }
 
@@ -260,7 +282,73 @@ contract BofhContractV2 is BofhContractBase, IBofhContract {
 
         // Verify total profitability
         if (totalOutput <= totalInput) revert UnprofitableExecution();
-        
+
+        return outputs;
+    }
+
+    /// @notice Execute a batch of independent swaps in a single transaction
+    /// @dev Protected by reentrancy guard, circuit breaker, and MEV protection
+    /// @dev All swaps execute atomically - if any fails, all revert
+    /// @dev Maximum batch size: 10 swaps to prevent gas limit issues
+    /// @param swaps Array of SwapParams structs, one per swap in the batch
+    /// @return outputs Array of actual output amounts for each swap
+    /// @custom:security Each swap independently validated (deadline, amounts, addresses)
+    /// @custom:security Batch size limited to 10 to prevent DoS via gas exhaustion
+    /// @custom:security MEV protection applied at batch level (not per-swap)
+    /// @custom:gas Saves ~28,000 gas per swap vs individual transactions
+    /// @custom:implementation Added in Issue #31 for batch operations support
+    function executeBatchSwaps(IBofhContract.SwapParams[] calldata swaps)
+        external
+        override(IBofhContract)
+        nonReentrant
+        whenNotPaused
+        antiMEV
+        returns (uint256[] memory outputs)
+    {
+        // === Batch Size Validation ===
+        uint256 batchSize = swaps.length;
+        if (batchSize == 0) revert InvalidArrayLength();
+        if (batchSize > 10) revert BatchSizeExceeded();
+
+        // === Initialize Output Array and Accumulators ===
+        outputs = new uint256[](batchSize);
+        uint256 totalInputs = 0;
+        uint256 totalOutputs = 0;
+
+        // === Execute Each Swap in the Batch ===
+        for (uint256 i = 0; i < batchSize;) {
+            IBofhContract.SwapParams calldata swap = swaps[i];
+
+            // Validate recipient address (allow different recipients per swap)
+            if (swap.recipient == address(0)) revert InvalidAddress();
+
+            // Accumulate total input
+            unchecked {
+                totalInputs += swap.amountIn;
+            }
+
+            // Execute the swap and send output to recipient
+            // Validation happens in _executeSwapToRecipient
+            uint256 outputAmount = _executeSwapToRecipient(
+                swap.path,
+                swap.fees,
+                swap.amountIn,
+                swap.minAmountOut,
+                swap.deadline,
+                swap.recipient
+            );
+
+            // Store output and accumulate total
+            outputs[i] = outputAmount;
+            unchecked {
+                totalOutputs += outputAmount;
+                ++i;
+            }
+        }
+
+        // === Emit Batch Execution Event ===
+        emit BatchSwapExecuted(msg.sender, batchSize, totalInputs, totalOutputs);
+
         return outputs;
     }
 

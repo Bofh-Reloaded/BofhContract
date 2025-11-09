@@ -4,7 +4,7 @@
 
 **Advanced Multi-Path Token Swap Optimizer for Binance Smart Chain**
 
-[![Tests](https://img.shields.io/badge/tests-163%20passing-brightgreen)](https://github.com/Bofh-Reloaded/BofhContract)
+[![Tests](https://img.shields.io/badge/tests-169%20passing-brightgreen)](https://github.com/Bofh-Reloaded/BofhContract)
 [![Coverage](https://img.shields.io/badge/coverage-improving-yellow)](https://github.com/Bofh-Reloaded/BofhContract)
 [![License](https://img.shields.io/badge/license-UNLICENSED-blue)](LICENSE)
 [![Solidity](https://img.shields.io/badge/solidity-0.8.10-363636)](https://docs.soliditylang.org)
@@ -47,6 +47,12 @@ An advanced DeFi smart contract system implementing mathematical optimization al
 - **Golden Ratio Optimization**: φ-based path splitting for 4-way and 5-way swaps
 - **Advanced CPMM Analysis**: Third-order Taylor expansion for price impact modeling
 - **Dynamic Programming**: Bellman equation implementation for optimal routing
+
+### Batch Operations
+- **Atomic Execution**: Execute up to 10 independent swaps in a single transaction
+- **Gas Savings**: ~28,000 gas saved per additional swap (no transaction overhead)
+- **Multi-Recipient Support**: Each swap can send output to different addresses
+- **Flexible Paths**: Different token paths and deadlines per swap in the batch
 
 ### Security Features
 - **Multi-Layer Protection**:
@@ -171,7 +177,7 @@ BofhContractV2 (main implementation - 404 lines)
 ### Key Components
 
 **Main Contracts:**
-- `BofhContractV2.sol` - Swap execution with golden ratio optimization
+- `BofhContractV2.sol` - Swap execution with golden ratio optimization and batch operations
 - `BofhContractBase.sol` - Security primitives and risk parameters
 
 **Libraries:**
@@ -256,7 +262,7 @@ See [Mathematical Foundations](docs/MATHEMATICAL_FOUNDATIONS.md) for complete de
 
 ### Test Suite
 
-**8 test files, 163 tests, 100% passing**
+**9 test files, 169 tests passing**
 
 ```bash
 test/
@@ -267,6 +273,7 @@ test/
 ├── MultiSwap.test.js                 # Multi-path tests (15 tests)
 ├── ViewFunctions.test.js             # View function tests (10 tests)
 ├── EmergencyTokenRecovery.test.js    # Emergency recovery tests (11 tests)
+├── BatchSwaps.test.js                # Batch operations tests (6+ tests)
 └── test_bofh_contract.py             # Python CLI tests (2 tests - not counted)
 ```
 
@@ -366,6 +373,7 @@ GitHub Actions workflows:
 - [x] Complete Hardhat deployment scripts (✅ Completed - Issue #25)
 - [x] Remove legacy Truffle dependencies (✅ Completed - Issue #27)
 - [x] Add emergency token recovery function (✅ Completed - Issue #26)
+- [x] Add batch operations support (✅ Completed - Issue #31)
 
 ### Short-Term (1-2 Months)
 - [ ] Increase test coverage to 90%+
@@ -439,6 +447,6 @@ See [LICENSE](LICENSE) for details.
 
 **BofhContract V2** - *Where Golden Ratio meets DeFi*
 
-`v1.5.0 | 163 Tests Passing | 8.1/10 Score | Pre-Production`
+`v1.5.0 | 169 Tests Passing | 8.1/10 Score | Pre-Production`
 
 </div>

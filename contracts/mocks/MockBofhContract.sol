@@ -168,6 +168,60 @@ contract MockBofhContract is IBofhContract {
         return outputs;
     }
 
+    /// @notice Execute mock batch swaps (no actual token transfers)
+    /// @dev Simulates batch execution without token transfers
+    /// @param swaps Array of swap parameters
+    /// @return outputs Array of output amounts
+    function executeBatchSwaps(IBofhContract.SwapParams[] calldata swaps)
+        external
+        override
+        returns (uint256[] memory outputs)
+    {
+        // Validate batch size
+        if (swaps.length == 0) revert InvalidArrayLength();
+        if (swaps.length > 10) revert BatchSizeExceeded();
+
+        outputs = new uint256[](swaps.length);
+        uint256 totalInputs = 0;
+        uint256 totalOutputs = 0;
+
+        // Execute each swap
+        for (uint256 i = 0; i < swaps.length; i++) {
+            IBofhContract.SwapParams calldata swap = swaps[i];
+
+            // Validate recipient
+            if (swap.recipient == address(0)) revert InvalidAddress();
+
+            // Validate deadline
+            if (block.timestamp > swap.deadline) revert DeadlineExpired();
+
+            // Validate path
+            if (swap.path.length == 0) revert InvalidPath();
+            if (swap.path[0] != baseToken || swap.path[swap.path.length - 1] != baseToken) {
+                revert InvalidPath();
+            }
+
+            // Validate amounts
+            if (swap.amountIn == 0) revert InvalidAmount();
+            if (swap.minAmountOut == 0) revert InvalidAmount();
+
+            // Determine output
+            uint256 output = mockOutputAmount > 0 ? mockOutputAmount : swap.minAmountOut;
+
+            outputs[i] = output;
+            totalInputs += swap.amountIn;
+            totalOutputs += output;
+
+            // Emit individual swap event
+            emit SwapExecuted(msg.sender, swap.path.length, swap.amountIn, output, 0);
+        }
+
+        // Emit batch event
+        emit BatchSwapExecuted(msg.sender, swaps.length, totalInputs, totalOutputs);
+
+        return outputs;
+    }
+
     /// @notice Mock implementation of getOptimalPathMetrics
     /// @dev Returns simplified metrics for testing
     /// @param path Swap path

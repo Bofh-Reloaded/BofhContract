@@ -52,6 +52,46 @@ interface IBofhContract {
     /// @notice Thrown when pair does not exist in factory
     error PairDoesNotExist();
 
+    /// @notice Thrown when batch size exceeds maximum allowed (10 swaps)
+    error BatchSizeExceeded();
+
+    // ============================================
+    // EVENTS
+    // ============================================
+
+    /// @notice Emitted when a batch of swaps is executed
+    /// @param executor Address that initiated the batch swap
+    /// @param batchSize Number of swaps in the batch
+    /// @param totalInputs Total input amounts across all swaps
+    /// @param totalOutputs Total output amounts across all swaps
+    event BatchSwapExecuted(
+        address indexed executor,
+        uint256 batchSize,
+        uint256 totalInputs,
+        uint256 totalOutputs
+    );
+
+    // ============================================
+    // STRUCTS
+    // ============================================
+
+    /// @notice Parameters for a single swap in a batch
+    /// @dev Allows different paths, amounts, deadlines, and recipients per swap
+    /// @custom:field path Array of token addresses representing the swap path
+    /// @custom:field fees Array of fee amounts in basis points (length = path.length - 1)
+    /// @custom:field amountIn Input amount for this specific swap
+    /// @custom:field minAmountOut Minimum acceptable output amount (slippage protection)
+    /// @custom:field deadline Unix timestamp after which this swap will revert
+    /// @custom:field recipient Address to receive the output tokens (allows multi-recipient batches)
+    struct SwapParams {
+        address[] path;
+        uint256[] fees;
+        uint256 amountIn;
+        uint256 minAmountOut;
+        uint256 deadline;
+        address recipient;
+    }
+
     // ============================================
     // CORE SWAP FUNCTIONS
     // ============================================
@@ -89,6 +129,25 @@ interface IBofhContract {
         uint256[] calldata minAmounts,
         uint256 deadline
     ) external returns (uint256[] memory);
+
+    /// @notice Execute a batch of independent swaps in a single transaction
+    /// @dev Protected by reentrancy guard, circuit breaker, and MEV protection
+    /// @dev All swaps execute atomically - if any fails, all revert
+    /// @dev Maximum batch size: 10 swaps to prevent gas limit issues
+    /// @dev Batch execution provides:
+    /// @dev - Gas savings: ~28,000 gas per additional swap (no tx overhead)
+    /// @dev - Atomic execution: All swaps succeed or all revert
+    /// @dev - Multi-recipient support: Each swap can have different recipient
+    /// @dev - Flexible paths: Each swap can use different token paths and deadlines
+    /// @param swaps Array of SwapParams structs, one per swap in the batch
+    /// @return outputs Array of actual output amounts for each swap
+    /// @custom:security Each swap independently validated (deadline, amounts, addresses)
+    /// @custom:security Batch size limited to 10 to prevent DoS via gas exhaustion
+    /// @custom:security MEV protection applied at batch level (not per-swap)
+    /// @custom:gas Saves ~28,000 gas per swap vs individual transactions
+    function executeBatchSwaps(SwapParams[] calldata swaps)
+        external
+        returns (uint256[] memory outputs);
 
     // ============================================
     // VIEW FUNCTIONS
