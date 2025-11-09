@@ -303,12 +303,10 @@ See [Gas Optimization Results](docs/GAS_OPTIMIZATION_PHASE3_RESULTS.md) for benc
 ```bash
 # Compilation
 npm run compile              # Compile contracts
-npm run compile:truffle      # Compile with Truffle (legacy)
 
 # Testing
 npm test                     # Run all tests
 npm run coverage             # Generate coverage report
-npm run test:truffle         # Run Truffle tests (legacy)
 
 # Linting & Formatting
 npm run lint                 # Run all linters
@@ -322,8 +320,18 @@ npm run security             # Run security scan
 npm run security:install     # Install Slither
 
 # Deployment
+npm run deploy               # Deploy (defaults to local)
+npm run deploy:local         # Deploy to local Hardhat network
 npm run deploy:testnet       # Deploy to BSC testnet
-npm run verify               # Verify on BSCScan
+npm run deploy:mainnet       # Deploy to BSC mainnet
+
+# Verification
+npm run verify:testnet       # Verify on BSC testnet
+npm run verify:mainnet       # Verify on BSC mainnet
+
+# Configuration
+npm run configure:testnet    # Configure deployed contract on testnet
+npm run configure:mainnet    # Configure deployed contract on mainnet
 ```
 
 ### CI/CD Pipeline
@@ -347,16 +355,14 @@ GitHub Actions workflows:
 - `solidity-coverage@0.8.5` - Coverage analysis
 - `hardhat-gas-reporter@2.3.0` - Gas usage reporting
 
-**Note:** Some legacy Truffle dependencies remain from migration. Cleanup in progress.
-
 ---
 
 ## 🗺️ Roadmap
 
 ### Immediate (Next 2 Weeks)
 - [x] Fix antiMEV stack depth issue in `executeMultiSwap` (✅ Completed - Issue #24)
-- [ ] Complete Hardhat deployment scripts
-- [ ] Remove legacy Truffle dependencies
+- [x] Complete Hardhat deployment scripts (✅ Completed - Issue #25)
+- [x] Remove legacy Truffle dependencies (✅ Completed - Issue #27)
 - [ ] Add emergency token recovery function
 
 ### Short-Term (1-2 Months)
