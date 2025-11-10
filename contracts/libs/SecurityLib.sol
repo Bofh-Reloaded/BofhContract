@@ -30,23 +30,24 @@ library SecurityLib {
 
     /// @notice Complete security state for a contract
     /// @dev Contains ownership, pause state, reentrancy lock, and rate limiting data
-    /// @custom:field owner Contract owner address with full permissions
-    /// @custom:field paused Emergency pause state (when true, most functions revert)
-    /// @custom:field locked Reentrancy guard lock (true when function is executing)
-    /// @custom:field lastActionTimestamp Last action timestamp for cooldown/rate limiting
-    /// @custom:field operators Mapping of authorized operator addresses
-    /// @custom:field functionCooldowns Per-function cooldown periods (seconds)
-    /// @custom:field userActionCounts Per-user action counter for rate limiting
-    /// @custom:field globalActionCounter Total actions in current interval
+    /// @dev Storage optimized: owner (20 bytes) + paused (1 byte) + locked (1 byte) = 22 bytes in slot 0
+    /// @custom:field owner Contract owner address with full permissions (20 bytes)
+    /// @custom:field paused Emergency pause state (when true, most functions revert) (1 byte, packed)
+    /// @custom:field locked Reentrancy guard lock (true when function is executing) (1 byte, packed)
+    /// @custom:field lastActionTimestamp Last action timestamp for cooldown/rate limiting (32 bytes, slot 1)
+    /// @custom:field globalActionCounter Total actions in current interval (32 bytes, slot 2)
+    /// @custom:field operators Mapping of authorized operator addresses (separate slots)
+    /// @custom:field functionCooldowns Per-function cooldown periods (seconds) (separate slots)
+    /// @custom:field userActionCounts Per-user action counter for rate limiting (separate slots)
     struct SecurityState {
-        address owner;
-        bool paused;
-        bool locked;
-        uint256 lastActionTimestamp;
-        mapping(address => bool) operators;
-        mapping(bytes4 => uint256) functionCooldowns;
-        mapping(address => uint256) userActionCounts;
-        uint256 globalActionCounter;
+        address owner;              // Slot 0: bytes 0-19 (20 bytes)
+        bool paused;                // Slot 0: byte 20 (1 byte, packed with owner)
+        bool locked;                // Slot 0: byte 21 (1 byte, packed with owner and paused)
+        uint256 lastActionTimestamp;    // Slot 1: full slot (32 bytes)
+        uint256 globalActionCounter;    // Slot 2: full slot (32 bytes)
+        mapping(address => bool) operators;            // Slot 3+: mappings always separate
+        mapping(bytes4 => uint256) functionCooldowns;  // Slot N+: mappings always separate
+        mapping(address => uint256) userActionCounts;  // Slot M+: mappings always separate
     }
 
     /// @notice Emitted when contract ownership is transferred

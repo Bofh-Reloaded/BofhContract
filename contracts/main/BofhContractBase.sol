@@ -58,17 +58,20 @@ abstract contract BofhContractBase is IBofhContractBase {
         uint256 lastTransactionTimestamp;
     }
 
-    /// @notice Per-user rate limit tracking (address => rate limit state)
-    mapping(address => RateLimitState) private rateLimits;
-
-    /// @notice MEV protection enabled flag (true = active, false = disabled)
-    bool public mevProtectionEnabled;
-
     /// @notice Maximum transactions allowed per block per user (flash loan detection)
+    /// @dev Moved before bool to optimize storage packing
     uint256 public maxTxPerBlock = 3;
 
     /// @notice Minimum delay required between transactions in seconds (rate limiting)
     uint256 public minTxDelay = 12; // seconds
+
+    /// @notice MEV protection enabled flag (true = active, false = disabled)
+    /// @dev Placed after uint256 variables for optimal storage packing (saves 1 slot)
+    bool public mevProtectionEnabled;
+
+    /// @notice Per-user rate limit tracking (address => rate limit state)
+    /// @dev Mappings always occupy separate slots, placed last
+    mapping(address => RateLimitState) private rateLimits;
 
     // Events and errors inherited from IBofhContractBase interface
 
