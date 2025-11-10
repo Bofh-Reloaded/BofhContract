@@ -137,7 +137,7 @@ Create `env.json` in the project root:
 ### Running Tests
 
 ```bash
-# Run all tests (153 tests)
+# Run all tests (179 tests)
 npm test
 
 # Run with gas reporting
@@ -212,16 +212,25 @@ BofhContractV2 (main implementation - 404 lines)
 
 ### Security Audits
 
-- **Automated Scanning**: Slither integration in CI/CD
-- **External Audit**: Pending (recommended before production)
-- **Bug Bounty**: Not yet established
+- **Automated Scanning**: Slither integration (0 critical findings)
+- **Test Coverage**: 94% production code coverage (179 tests passing)
+- **External Audit**: Ready for audit (comprehensive documentation prepared)
+- **Bug Bounty**: Planned post-mainnet launch
+
+### Security Documentation
+
+📋 [**Security Analysis**](docs/SECURITY.md) - Attack vectors and mitigations (10 detailed scenarios)
+📋 [**Security Checklist**](docs/SECURITY_CHECKLIST.md) - Comprehensive pre-audit verification
+📋 [**Audit Preparation**](docs/AUDIT_PREPARATION.md) - Audit firm selection and scope
+📋 [**Test Report**](docs/TEST_AND_SECURITY_REPORT.md) - Complete testing and security analysis
 
 ### Known Limitations
 
-⚠️ **No Oracle Integration**: Relies on pool reserves only
-⚠️ **Centralization**: Single owner has significant control (mitigate with multisig)
+⚠️ **No Oracle Integration**: Relies on pool reserves (mitigated by MEV protection)
+⚠️ **Centralization**: Single owner has significant control (deploy with multisig)
+⚠️ **No Upgradeability**: Immutable contracts (requires redeployment for fixes)
 
-See [Security Analysis](docs/SECURITY.md) for complete details.
+See security documentation for detailed analysis and mitigation strategies.
 
 ---
 
