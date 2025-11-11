@@ -399,16 +399,32 @@ describe("Libraries", function () {
         const amountIn = ethers.parseEther("10");
         const timestamp = Math.floor(Date.now() / 1000);
 
+        // Get actual token0 from pair to handle address-based sorting
+        const token0 = await pair.token0();
+        const tokenAAddr = await tokenA.getAddress();
+        const isToken0 = token0.toLowerCase() === tokenAAddr.toLowerCase();
+
         const state = await poolLib.testAnalyzePool(
           await pair.getAddress(),
-          await tokenA.getAddress(),
+          tokenAAddr,
           amountIn,
           timestamp
         );
 
-        expect(state.reserveIn).to.equal(ethers.parseEther("1000"));
-        expect(state.reserveOut).to.equal(ethers.parseEther("2000"));
-        expect(state.sellingToken0).to.be.true;
+        // Verify correct reserves based on which token we're trading
+        // When tokenA is token0: selling token0 (1000 ETH), buying token1 (2000 ETH)
+        // When tokenA is token1: selling token1 (1000 ETH), buying token0 (2000 ETH)
+        // In both cases, tokenA has 1000 liquidity and tokenB has 2000 liquidity
+        if (isToken0) {
+          expect(state.reserveIn).to.equal(ethers.parseEther("1000"));
+          expect(state.reserveOut).to.equal(ethers.parseEther("2000"));
+          expect(state.sellingToken0).to.be.true;
+        } else {
+          // tokenA is token1, so we're selling token1 (1000) to buy token0 (2000)
+          expect(state.reserveIn).to.equal(ethers.parseEther("1000"));
+          expect(state.reserveOut).to.equal(ethers.parseEther("2000"));
+          expect(state.sellingToken0).to.be.false;
+        }
         expect(state.depth).to.be.gt(0);
         expect(state.priceImpact).to.be.gt(0);
       });
@@ -418,16 +434,32 @@ describe("Libraries", function () {
         const amountIn = ethers.parseEther("10");
         const timestamp = Math.floor(Date.now() / 1000);
 
+        // Get actual token0 from pair to handle address-based sorting
+        const token0 = await pair.token0();
+        const tokenBAddr = await tokenB.getAddress();
+        const isToken0 = token0.toLowerCase() === tokenBAddr.toLowerCase();
+
         const state = await poolLib.testAnalyzePool(
           await pair.getAddress(),
-          await tokenB.getAddress(),
+          tokenBAddr,
           amountIn,
           timestamp
         );
 
-        expect(state.reserveIn).to.equal(ethers.parseEther("2000"));
-        expect(state.reserveOut).to.equal(ethers.parseEther("1000"));
-        expect(state.sellingToken0).to.be.false;
+        // Verify correct reserves based on which token we're trading
+        // When tokenB is token0: selling token0 (2000 ETH), buying token1 (1000 ETH)
+        // When tokenB is token1: selling token1 (2000 ETH), buying token0 (1000 ETH)
+        // In both cases, tokenB has 2000 liquidity and tokenA has 1000 liquidity
+        if (isToken0) {
+          expect(state.reserveIn).to.equal(ethers.parseEther("2000"));
+          expect(state.reserveOut).to.equal(ethers.parseEther("1000"));
+          expect(state.sellingToken0).to.be.true;
+        } else {
+          // tokenB is token1, so we're selling token1 (2000) to buy token0 (1000)
+          expect(state.reserveIn).to.equal(ethers.parseEther("2000"));
+          expect(state.reserveOut).to.equal(ethers.parseEther("1000"));
+          expect(state.sellingToken0).to.be.false;
+        }
         expect(state.depth).to.be.gt(0);
       });
 
