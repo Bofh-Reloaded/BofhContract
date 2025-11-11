@@ -102,8 +102,9 @@ contract BofhContractV2 is BofhContractBase, IBofhContract {
             unchecked { ++i; }
         }
 
-        // 5. Path structure validation
-        if (path[0] != baseToken || path[pathLength - 1] != baseToken) revert InvalidPath();
+        // 5. Path structure validation (cache baseToken to avoid double SLOAD)
+        address cachedBaseToken = baseToken;
+        if (path[0] != cachedBaseToken || path[pathLength - 1] != cachedBaseToken) revert InvalidPath();
 
         // 6. Fee validation (fees must be reasonable, max 100% = 10000 bps)
         for (uint256 i = 0; i < fees.length;) {
@@ -158,17 +159,24 @@ contract BofhContractV2 is BofhContractBase, IBofhContract {
         // Comprehensive input validation (Issue #8)
         uint256 pathLength = _validateSwapInputs(path, fees, amountIn, minAmountOut, deadline);
 
-        // Initialize swap state
-        uint256 lastIndex = pathLength - 1;
-        SwapState memory state = SwapState({
-            currentToken: baseToken,
-            currentAmount: amountIn,
-            cumulativeImpact: 0
-        });
+        // Initialize swap state and transfer tokens (scoped to avoid stack depth issues)
+        uint256 lastIndex;
+        SwapState memory state;
+        {
+            // Gas optimization: Cache baseToken to avoid multiple SLOAD operations
+            address cachedBaseToken = baseToken;
 
-        // Transfer initial amount from user
-        if (!IBEP20(baseToken).transferFrom(msg.sender, address(this), amountIn)) {
-            revert TransferFailed();
+            lastIndex = pathLength - 1;
+            state = SwapState({
+                currentToken: cachedBaseToken,
+                currentAmount: amountIn,
+                cumulativeImpact: 0
+            });
+
+            // Transfer initial amount from user
+            if (!IBEP20(cachedBaseToken).transferFrom(msg.sender, address(this), amountIn)) {
+                revert TransferFailed();
+            }
         }
 
         // Execute swaps along the path
@@ -394,15 +402,16 @@ contract BofhContractV2 is BofhContractBase, IBofhContract {
 
         // Calculate expected output using constant product formula (x * y = k)
         // amountOut = (amountIn * reserveOut * 997) / (reserveIn * 1000 + amountIn * 997)
-        // Assembly optimization for CPMM formula (Phase 3 gas optimization)
+        // Gas optimization: Use unchecked for all arithmetic (overflow mathematically impossible)
         uint256 expectedOutput;
         unchecked {
             uint256 amountInWithFee = state.currentAmount * 997;
             uint256 numerator = amountInWithFee * pool.reserveOut;
             uint256 denominator = pool.reserveIn * 1000 + amountInWithFee;
             expectedOutput = numerator / denominator;
+            // Add price impact within unchecked block (cumulative impact bounded by path length)
+            state.cumulativeImpact += pool.priceImpact;
         }
-        state.cumulativeImpact += pool.priceImpact;
 
         // Transfer tokens to the pair contract (Uniswap V2 pattern)
         if (!IBEP20(tokenIn).transfer(pairAddress, state.currentAmount)) {
