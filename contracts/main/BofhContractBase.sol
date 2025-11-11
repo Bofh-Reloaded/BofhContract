@@ -59,15 +59,17 @@ abstract contract BofhContractBase is IBofhContractBase {
     }
 
     /// @notice Maximum transactions allowed per block per user (flash loan detection)
-    /// @dev Moved before bool to optimize storage packing
-    uint256 public maxTxPerBlock = 3;
+    /// @dev Packed with mevProtectionEnabled bool to save 1 storage slot
+    /// @dev uint248 is sufficient (max value: 452,312,848,583,266,388,373,324,160,190,187,140,051,835,877,600,158,453,279,131,187,530,910,662,655)
+    /// @dev Internal storage uses uint248, public getter returns uint256 for interface compatibility
+    uint248 internal _maxTxPerBlock = 3;
+
+    /// @notice MEV protection enabled flag (true = active, false = disabled)
+    /// @dev Packed with maxTxPerBlock (uint248) to save 1 storage slot (gas optimization)
+    bool public mevProtectionEnabled;
 
     /// @notice Minimum delay required between transactions in seconds (rate limiting)
     uint256 public minTxDelay = 12; // seconds
-
-    /// @notice MEV protection enabled flag (true = active, false = disabled)
-    /// @dev Placed after uint256 variables for optimal storage packing (saves 1 slot)
-    bool public mevProtectionEnabled;
 
     /// @notice Per-user rate limit tracking (address => rate limit state)
     /// @dev Mappings always occupy separate slots, placed last
@@ -113,12 +115,14 @@ abstract contract BofhContractBase is IBofhContractBase {
     }
 
     /// @notice Modifier to prevent reentrancy attacks
-    /// @dev Uses SecurityLib enter/exitProtectedSection with function selector
+    /// @dev Inlined for gas optimization (saves ~2-3k gas per call)
     /// @dev Locks before execution, unlocks after, reverts if already locked
+    /// @dev Note: Function-specific cooldowns not used, so msg.sig check removed for gas savings
     modifier nonReentrant() {
-        securityState.enterProtectedSection(msg.sig);
+        if (securityState.locked) revert SecurityLib.ReentrancyGuardError();
+        securityState.locked = true;
         _;
-        securityState.exitProtectedSection();
+        securityState.locked = false;
     }
 
     /// @notice Internal function to check MEV protection before transaction
@@ -134,7 +138,7 @@ abstract contract BofhContractBase is IBofhContractBase {
         // Detect flash loan (multiple transactions in same block)
         if (limit.lastBlockNumber == block.number) {
             limit.transactionsThisBlock++;
-            if (limit.transactionsThisBlock > maxTxPerBlock) {
+            if (limit.transactionsThisBlock > _maxTxPerBlock) {
                 revert FlashLoanDetected();
             }
         } else {
@@ -236,21 +240,29 @@ abstract contract BofhContractBase is IBofhContractBase {
 
     /// @notice Configure MEV protection parameters (Issue #9)
     /// @param enabled Enable or disable MEV protection
-    /// @param _maxTxPerBlock Maximum transactions per block per address
-    /// @param _minTxDelay Minimum seconds between transactions per address
+    /// @param maxTxPerBlock_ Maximum transactions per block per address
+    /// @param minTxDelay_ Minimum seconds between transactions per address
     function configureMEVProtection(
         bool enabled,
-        uint256 _maxTxPerBlock,
-        uint256 _minTxDelay
+        uint256 maxTxPerBlock_,
+        uint256 minTxDelay_
     ) external onlyOwner {
-        require(_maxTxPerBlock > 0, "Invalid max tx per block");
-        require(_minTxDelay > 0, "Invalid min tx delay");
+        require(maxTxPerBlock_ > 0, "Invalid max tx per block");
+        require(maxTxPerBlock_ <= type(uint248).max, "Max tx per block exceeds uint248");
+        require(minTxDelay_ > 0, "Invalid min tx delay");
 
         mevProtectionEnabled = enabled;
-        maxTxPerBlock = _maxTxPerBlock;
-        minTxDelay = _minTxDelay;
+        _maxTxPerBlock = uint248(maxTxPerBlock_);
+        minTxDelay = minTxDelay_;
 
-        emit MEVProtectionUpdated(enabled, _maxTxPerBlock, _minTxDelay);
+        emit MEVProtectionUpdated(enabled, maxTxPerBlock_, minTxDelay_);
+    }
+
+    /// @notice Get maximum transactions per block per user
+    /// @return Maximum transactions per block (uint256 for interface compatibility)
+    /// @dev Converts internal uint248 storage to uint256 for return
+    function maxTxPerBlock() external view returns (uint256) {
+        return uint256(_maxTxPerBlock);
     }
 
     /// @notice Pause all contract operations in emergency situations
@@ -410,7 +422,7 @@ abstract contract BofhContractBase is IBofhContractBase {
     ) {
         return (
             mevProtectionEnabled,
-            maxTxPerBlock,
+            uint256(_maxTxPerBlock),
             minTxDelay
         );
     }

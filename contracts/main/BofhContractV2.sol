@@ -188,7 +188,11 @@ contract BofhContractV2 is BofhContractBase, IBofhContract {
         if (state.currentAmount < minAmountOut) revert InsufficientOutput();
 
         // Calculate total price impact and validate
-        uint256 priceImpact = (state.cumulativeImpact * PRECISION) / amountIn;
+        // Gas optimization: Use unchecked for multiplication (overflow not possible with PRECISION = 1e6)
+        uint256 priceImpact;
+        unchecked {
+            priceImpact = (state.cumulativeImpact * PRECISION) / amountIn;
+        }
         if (priceImpact > maxPriceImpact) revert ExcessiveSlippage();
 
         // Transfer profit to recipient
@@ -456,14 +460,17 @@ contract BofhContractV2 is BofhContractBase, IBofhContract {
                 block.timestamp
             );
 
-            cumulativeImpact += pool.priceImpact;
-            expectedOutput = (expectedOutput * (PRECISION - pool.priceImpact)) / PRECISION;
-
-            unchecked { ++i; }
+            unchecked {
+                cumulativeImpact += pool.priceImpact;
+                expectedOutput = (expectedOutput * (PRECISION - pool.priceImpact)) / PRECISION;
+                ++i;
+            }
         }
-        
+
         priceImpact = cumulativeImpact;
-        optimalityScore = (expectedOutput * PRECISION) / amounts[0];
+        unchecked {
+            optimalityScore = (expectedOutput * PRECISION) / amounts[0];
+        }
 
         return (expectedOutput, priceImpact, optimalityScore);
     }
