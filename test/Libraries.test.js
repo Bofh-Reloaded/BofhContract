@@ -846,7 +846,9 @@ describe("Libraries", function () {
 
       it("Should accept deadline within grace period", async function () {
         const { securityLib } = await loadFixture(deployLibraryTestsFixture);
-        const recentPast = Math.floor(Date.now() / 1000) - 10; // 10 seconds ago
+        // Use current block timestamp to avoid timing issues in test suite
+        const currentBlock = await ethers.provider.getBlock('latest');
+        const recentPast = currentBlock.timestamp - 10; // 10 seconds ago from block time
         await expect(securityLib.testValidateDeadline(recentPast, 60)).to.not.be.reverted;
       });
     });
