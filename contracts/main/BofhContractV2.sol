@@ -173,10 +173,8 @@ contract BofhContractV2 is BofhContractBase, IBofhContract {
                 cumulativeImpact: 0
             });
 
-            // Transfer initial amount from user
-            if (!IBEP20(cachedBaseToken).transferFrom(msg.sender, address(this), amountIn)) {
-                revert TransferFailed();
-            }
+            // Transfer initial amount from user (Phase 3: optimized)
+            _safeTransferFrom(cachedBaseToken, msg.sender, address(this), amountIn);
         }
 
         // Execute swaps along the path
@@ -203,10 +201,8 @@ contract BofhContractV2 is BofhContractBase, IBofhContract {
         }
         if (priceImpact > maxPriceImpact) revert ExcessiveSlippage();
 
-        // Transfer profit to recipient
-        if (!IBEP20(baseToken).transfer(recipient, state.currentAmount)) {
-            revert TransferFailed();
-        }
+        // Transfer profit to recipient (Phase 3: optimized)
+        _safeTransfer(baseToken, recipient, state.currentAmount);
 
         emit SwapExecuted(
             msg.sender,
@@ -402,21 +398,35 @@ contract BofhContractV2 is BofhContractBase, IBofhContract {
 
         // Calculate expected output using constant product formula (x * y = k)
         // amountOut = (amountIn * reserveOut * 997) / (reserveIn * 1000 + amountIn * 997)
-        // Gas optimization: Use unchecked for all arithmetic (overflow mathematically impossible)
+        // Phase 3 optimization: Assembly for maximum gas efficiency
         uint256 expectedOutput;
+        assembly {
+            // Load values from memory
+            let amountIn := mload(add(state, 0x20)) // state.currentAmount
+            let reserveOut := mload(add(pool, 0x20)) // pool.reserveOut (2nd field after reserveIn)
+            let reserveIn := mload(pool) // pool.reserveIn (1st field)
+
+            // Calculate: amountInWithFee = amountIn * 997
+            let amountInWithFee := mul(amountIn, 997)
+
+            // Calculate: numerator = amountInWithFee * reserveOut
+            let numerator := mul(amountInWithFee, reserveOut)
+
+            // Calculate: denominator = reserveIn * 1000 + amountInWithFee
+            let denominator := add(mul(reserveIn, 1000), amountInWithFee)
+
+            // Calculate: expectedOutput = numerator / denominator
+            expectedOutput := div(numerator, denominator)
+        }
+
+        // Add price impact (keep in Solidity for struct access simplicity)
         unchecked {
-            uint256 amountInWithFee = state.currentAmount * 997;
-            uint256 numerator = amountInWithFee * pool.reserveOut;
-            uint256 denominator = pool.reserveIn * 1000 + amountInWithFee;
-            expectedOutput = numerator / denominator;
-            // Add price impact within unchecked block (cumulative impact bounded by path length)
             state.cumulativeImpact += pool.priceImpact;
         }
 
         // Transfer tokens to the pair contract (Uniswap V2 pattern)
-        if (!IBEP20(tokenIn).transfer(pairAddress, state.currentAmount)) {
-            revert TransferFailed();
-        }
+        // Phase 3 optimization: Low-level call for gas efficiency
+        _safeTransfer(tokenIn, pairAddress, state.currentAmount);
 
         {
             uint256 balanceBefore = IBEP20(tokenOut).balanceOf(address(this));
@@ -504,5 +514,105 @@ contract BofhContractV2 is BofhContractBase, IBofhContract {
     /// @return The address of the factory
     function getFactory() external view returns (address) {
         return factory;
+    }
+
+    /// @notice Safe token transferFrom using low-level call for gas optimization
+    /// @dev Phase 3 optimization: Assembly-based transferFrom with proper error handling
+    /// @param token Token address to transfer from
+    /// @param from Address to transfer from
+    /// @param to Recipient address
+    /// @param amount Amount to transfer
+    function _safeTransferFrom(address token, address from, address to, uint256 amount) private {
+        assembly {
+            // Get free memory pointer
+            let ptr := mload(0x40)
+
+            // Store transferFrom(address,address,uint256) selector: 0x23b872dd
+            mstore(ptr, 0x23b872dd00000000000000000000000000000000000000000000000000000000)
+            mstore(add(ptr, 0x04), from)
+            mstore(add(ptr, 0x24), to)
+            mstore(add(ptr, 0x44), amount)
+
+            // Call transferFrom function
+            let success := call(
+                gas(),      // Forward all gas
+                token,      // Token address
+                0,          // No ETH value
+                ptr,        // Input data pointer
+                0x64,       // Input size: 4 (selector) + 32 (from) + 32 (to) + 32 (amount)
+                ptr,        // Output pointer (reuse input)
+                0x20        // Output size: 32 bytes (bool)
+            )
+
+            // Check if call succeeded and returned true
+            switch returndatasize()
+            case 0 {
+                // No return data
+                if iszero(success) {
+                    // Revert with TransferFailed()
+                    mstore(ptr, 0x90b8ec1800000000000000000000000000000000000000000000000000000000)
+                    revert(ptr, 0x04)
+                }
+            }
+            default {
+                // Token returned data - check if it's true
+                let returnValue := mload(ptr)
+                if or(iszero(success), iszero(returnValue)) {
+                    // Revert with TransferFailed()
+                    mstore(ptr, 0x90b8ec1800000000000000000000000000000000000000000000000000000000)
+                    revert(ptr, 0x04)
+                }
+            }
+        }
+    }
+
+    /// @notice Safe token transfer using low-level call for gas optimization
+    /// @dev Phase 3 optimization: Assembly-based transfer with proper error handling
+    /// @param token Token address to transfer
+    /// @param to Recipient address
+    /// @param amount Amount to transfer
+    function _safeTransfer(address token, address to, uint256 amount) private {
+        assembly {
+            // Get free memory pointer
+            let ptr := mload(0x40)
+
+            // Store transfer(address,uint256) selector: 0xa9059cbb
+            mstore(ptr, 0xa9059cbb00000000000000000000000000000000000000000000000000000000)
+            mstore(add(ptr, 0x04), to)
+            mstore(add(ptr, 0x24), amount)
+
+            // Call transfer function
+            let success := call(
+                gas(),      // Forward all gas
+                token,      // Token address
+                0,          // No ETH value
+                ptr,        // Input data pointer
+                0x44,       // Input size: 4 (selector) + 32 (to) + 32 (amount)
+                ptr,        // Output pointer (reuse input)
+                0x20        // Output size: 32 bytes (bool)
+            )
+
+            // Check if call succeeded and returned true
+            // Some tokens return nothing, so we check returndatasize
+            switch returndatasize()
+            case 0 {
+                // No return data - token doesn't return bool (e.g., USDT)
+                // Just check if call succeeded
+                if iszero(success) {
+                    // Revert with TransferFailed()
+                    mstore(ptr, 0x90b8ec1800000000000000000000000000000000000000000000000000000000)
+                    revert(ptr, 0x04)
+                }
+            }
+            default {
+                // Token returned data - check if it's true
+                let returnValue := mload(ptr)
+                if or(iszero(success), iszero(returnValue)) {
+                    // Revert with TransferFailed()
+                    mstore(ptr, 0x90b8ec1800000000000000000000000000000000000000000000000000000000)
+                    revert(ptr, 0x04)
+                }
+            }
+        }
     }
 }
