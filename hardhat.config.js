@@ -1,4 +1,9 @@
-require("@nomicfoundation/hardhat-toolbox");
+// Import individual plugins instead of toolbox to avoid ignition peer dependency conflict
+// Note: hardhat-toolbox includes ignition which has peer dependency conflicts
+// We import only what we need
+require("@nomicfoundation/hardhat-ethers");
+require("@nomicfoundation/hardhat-chai-matchers");
+require("@nomicfoundation/hardhat-network-helpers");
 require("hardhat-gas-reporter");
 require("solidity-coverage");
 
