@@ -8,7 +8,17 @@ require("hardhat-gas-reporter");
 require("solidity-coverage");
 
 // Import environment configuration (same format as Truffle)
-const { mnemonic, BSCSCANAPIKEY } = require('./env.json');
+// Fallback to placeholder values in CI where env.json doesn't exist
+let mnemonic, BSCSCANAPIKEY;
+try {
+  const env = require('./env.json');
+  mnemonic = env.mnemonic;
+  BSCSCANAPIKEY = env.BSCSCANAPIKEY;
+} catch (e) {
+  // Use placeholder values for CI/CD
+  mnemonic = "test test test test test test test test test test test junk";
+  BSCSCANAPIKEY = "placeholder";
+}
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
