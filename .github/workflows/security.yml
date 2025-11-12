@@ -45,7 +45,7 @@ jobs:
       - name: Run Slither (Full Analysis)
         run: |
           slither . \
-            --filter-paths "node_modules|test|.variants" \
+            --filter-paths "node_modules|test|.variants|mocks" \
             --exclude naming-convention,solc-version \
             --json slither-full-report.json \
             --sarif slither-results.sarif \
